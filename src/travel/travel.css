@@ -4567,4 +4567,35 @@
     gap: 5px;
     padding: 8px 7px;
   }
+
+  .expense-card:not(.personal-expense-card) .expense-split-summary {
+    grid-template-columns: 1fr;
+    gap: 7px;
+  }
+
+  .expense-card:not(.personal-expense-card) .expense-split-summary>div {
+    min-height: 48px;
+    padding: 7px 10px;
+  }
+
+  .currency-toggle {
+    flex: 0 0 auto;
+  }
+
+  .currency-toggle button {
+    min-width: 48px;
+    min-height: 40px;
+    padding: 0 10px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .expense-total-bar>div:first-child {
+    min-width: 0;
+  }
+
+  .expense-total-bar small {
+    font-size: 10px;
+    white-space: normal;
+  }
 }
