@@ -33,6 +33,7 @@ function expenseFields(input) {
         currency: input.currency,
         category: input.category,
         paymentMethod: input.paymentMethod,
+        paymentStatus: input.paymentStatus || 'unpaid',
         updatedAt: serverTimestamp(),
     };
 }
@@ -46,36 +47,41 @@ export const expenseStore = {
         return onValue(expenseReference(`users/${uid}/expenses`), (snapshot) => onExpenses(readExpenses(snapshot)), onError);
     },
 
-    createShared(uid, displayName, input) {
+    createShared(uid, participant, input) {
         const expenseReference = push(expenseReferenceRoot('sharedExpenses'));
         return set(expenseReference, {
             ...expenseFields(input),
             creatorId: uid,
-            creatorName: displayName || '旅人',
+            creatorName: participant.name || '旅人',
             createdAt: serverTimestamp(),
             participants: {
                 [uid]: {
                     uid,
-                    name: displayName || '旅人',
+                    name: participant.name || '旅人',
+                    photoURL: participant.photoURL || '',
                     joinedAt: serverTimestamp(),
-                    settled: false,
+                    settled: input.paymentStatus === 'paid',
                 },
             },
         });
     },
 
-    updateShared(expenseId, input) {
-        return update(expenseReference(`sharedExpenses/${expenseId}`), expenseFields(input));
+    updateShared(expenseId, creatorId, input) {
+        return update(expenseReference(`sharedExpenses/${expenseId}`), {
+            ...expenseFields(input),
+            [`participants/${creatorId}/settled`]: input.paymentStatus === 'paid',
+        });
     },
 
     removeShared(expenseId) {
         return remove(expenseReference(`sharedExpenses/${expenseId}`));
     },
 
-    joinShared(expenseId, uid, displayName) {
+    joinShared(expenseId, uid, participant) {
         return set(expenseReference(`sharedExpenses/${expenseId}/participants/${uid}`), {
             uid,
-            name: displayName || '旅人',
+            name: participant.name || '旅人',
+            photoURL: participant.photoURL || '',
             joinedAt: serverTimestamp(),
             settled: false,
         });
@@ -85,8 +91,12 @@ export const expenseStore = {
         return remove(expenseReference(`sharedExpenses/${expenseId}/participants/${uid}`));
     },
 
-    setParticipantSettled(expenseId, uid, settled) {
-        return update(expenseReference(`sharedExpenses/${expenseId}/participants/${uid}`), { settled });
+    setParticipantSettled(expenseId, uid, settled, creatorId) {
+        const updates = {
+            [`participants/${uid}/settled`]: settled,
+        };
+        if (uid === creatorId) updates.paymentStatus = settled ? 'paid' : 'unpaid';
+        return update(expenseReference(`sharedExpenses/${expenseId}`), updates);
     },
 
     createPersonal(uid, input) {
