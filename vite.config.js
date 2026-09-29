@@ -12,7 +12,6 @@ const base = process.env.VITE_BASE_PATH || (
 export default defineConfig({
   plugins: [react()],
   base,
-  root: fileURLToPath(new URL('./auth/', import.meta.url)),
   resolve: {
     alias: [
       { find: 'react/jsx-dev-runtime', replacement: fileURLToPath(new URL('./node_modules/react/jsx-dev-runtime.js', import.meta.url)) },

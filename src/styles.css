@@ -60,7 +60,7 @@ button {
   position: fixed;
   inset: 0;
   z-index: -1;
-  background-image: url('../../img/mainimg.jpg');
+  background-image: url('./assets/mainimg.jpg');
   background-position: center;
   background-size: cover;
   opacity: .8;

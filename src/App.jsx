@@ -13,7 +13,7 @@ import { ArrowLeft, ArrowRight, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, Ma
 import { auth, hasFirebaseConfig } from './firebase.js';
 import { expenseStore } from './expenseStore.js';
 import { packingStore } from './packingStore.js';
-import TravelHome from '../../main/TravelHome.jsx';
+import TravelHome from './travel/TravelHome.jsx';
 
 const firebaseErrors = {
   'auth/email-already-in-use': '這個電子郵件已經註冊過了。',

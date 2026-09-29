@@ -10,7 +10,7 @@ import {
 import { db } from './firebase.js';
 
 function itemsReference(uid) {
-  if (!db) throw new Error('請在 auth/.env 設定 VITE_FIREBASE_DATABASE_URL。');
+  if (!db) throw new Error('請在根目錄 .env 設定 VITE_FIREBASE_DATABASE_URL。');
   return ref(db, `users/${uid}/packingItems`);
 }
 

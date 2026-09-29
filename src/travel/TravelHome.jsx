@@ -200,7 +200,7 @@ function DayCard({ day, weather, isOpen, onToggle }) {
         <ChevronDown className="day-chevron" size={18} />
       </button>
       {isOpen && (
-        <div className="day-card-body">
+        <div id={`day-card-body-${day.id}`} className="day-card-body">
           <p className="day-summary">{day.summary}</p>
           <HighlightTags day={day} />
           <div className="schedule-list">
@@ -221,15 +221,22 @@ function DayCard({ day, weather, isOpen, onToggle }) {
 
 function TripOverview({ weather }) {
   const [openDay, setOpenDay] = useState(getInitialOpenDay);
+  const [pendingScrollDay, setPendingScrollDay] = useState(null);
+
+  useEffect(() => {
+    if (pendingScrollDay === null || openDay !== pendingScrollDay) return undefined;
+
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(`day-card-body-${pendingScrollDay}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setPendingScrollDay(null);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [openDay, pendingScrollDay]);
 
   function toggleDay(dayId) {
-    const isChangingDay = openDay !== dayId;
-    setOpenDay(openDay === dayId ? null : dayId);
-    if (!isChangingDay) return;
-
-    window.requestAnimationFrame(() => {
-      document.getElementById(`day-card-heading-${dayId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
+    const willOpen = openDay !== dayId;
+    setOpenDay(willOpen ? dayId : null);
+    setPendingScrollDay(willOpen ? dayId : null);
   }
 
   return (
@@ -579,7 +586,7 @@ export default function TravelHome({ user, onSignOut, packingStore, expenseStore
         if (!active) return;
         setPackingLoadState('error');
         setPackingError(isRealtimeDatabasePermissionError(error)
-          ? 'Realtime Database 規則尚未允許此帳號讀取清單，請發布 auth/database.rules.json。'
+          ? 'Realtime Database 規則尚未允許此帳號讀取清單，請發布 database.rules.json。'
           : '無法載入清單，請檢查網路連線或 Realtime Database 設定。');
       });
     } catch (error) {
@@ -600,7 +607,7 @@ export default function TravelHome({ user, onSignOut, packingStore, expenseStore
       return true;
     } catch (error) {
       setPackingActionError(isRealtimeDatabasePermissionError(error)
-        ? 'Realtime Database 規則尚未允許此帳號修改清單，請發布 auth/database.rules.json。'
+        ? 'Realtime Database 規則尚未允許此帳號修改清單，請發布 database.rules.json。'
         : '儲存失敗，請檢查網路後再試。');
       return false;
     } finally {

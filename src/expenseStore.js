@@ -10,7 +10,7 @@ import {
 import { db } from './firebase.js';
 
 function requireDatabase() {
-    if (!db) throw new Error('請在 auth/.env 設定 Firebase Realtime Database。');
+    if (!db) throw new Error('請在根目錄 .env 設定 Firebase Realtime Database。');
     return db;
 }
 
