@@ -1,5 +1,18 @@
 {
   "rules": {
+    "trips": {
+      "$tripId": {
+        ".read": "auth != null",
+        ".write": "auth != null && ((!newData.exists() && data.child('ownerId').val() === auth.uid) || (newData.exists() && data.child('participants').child(auth.uid).exists()) || (!data.exists() && newData.child('ownerId').val() === auth.uid))",
+        ".validate": "newData.hasChildren(['ownerId', 'title', 'description', 'country', 'startDate', 'endDate', 'participants']) && newData.child('ownerId').isString() && newData.child('title').isString() && newData.child('title').val().length > 0 && newData.child('title').val().length <= 80 && newData.child('description').isString() && newData.child('description').val().length <= 500 && newData.child('country').isString() && newData.child('country').val().length > 0 && newData.child('startDate').isString() && newData.child('endDate').isString()",
+        "participants": {
+          "$participantUid": {
+            ".write": "auth != null && ((auth.uid === $participantUid && !data.exists()) || root.child('trips').child($tripId).child('ownerId').val() === auth.uid)",
+            ".validate": "newData.hasChildren(['uid', 'name', 'joinedAt']) && newData.child('uid').val() === $participantUid && newData.child('name').isString() && (!newData.child('photoURL').exists() || newData.child('photoURL').isString())"
+          }
+        }
+      }
+    },
     "sharedExpenses": {
       ".read": "auth != null",
       "$expenseId": {
@@ -41,6 +54,13 @@
           ".write": "auth != null && auth.uid === $uid",
           "$expenseId": {
             ".validate": "newData.hasChildren(['title', 'description', 'amount', 'currency', 'category', 'paymentMethod', 'createdAt']) && newData.child('title').isString() && newData.child('title').val().length > 0 && newData.child('title').val().length <= 60 && newData.child('description').isString() && newData.child('amount').isNumber() && newData.child('amount').val() > 0 && (newData.child('currency').val() === 'JPY' || newData.child('currency').val() === 'TWD')"
+          }
+        },
+        "trips": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid",
+          "$tripId": {
+            ".write": "auth != null && (auth.uid === $uid || (!newData.exists() && root.child('trips').child($tripId).child('ownerId').val() === auth.uid))"
           }
         }
       }
