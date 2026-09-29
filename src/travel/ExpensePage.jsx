@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     Check,
     CreditCard,
+    ArrowRight,
     Pencil,
     Plus,
     Receipt,
@@ -49,33 +50,91 @@ function participantEntries(expense) {
     return Object.values(expense.participants || {});
 }
 
-function ParticipantAvatar({ participant, active, canToggleStatus, onToggle, onToggleStatus }) {
+function isExpensePaid(expense) {
+    const payer = participantEntries(expense).find((participant) => participant.uid === expense.creatorId);
+    return expense.paymentStatus ? expense.paymentStatus === 'paid' : Boolean(payer?.settled);
+}
+
+function expenseSharesInMinorUnits(expense) {
+    const participants = participantEntries(expense).filter((participant) => participant.uid).sort((first, second) => first.uid.localeCompare(second.uid));
+    if (!participants.length) return [];
+    const multiplier = expense.currency === 'JPY' ? 1 : 100;
+    const total = Math.round(Number(expense.amount || 0) * multiplier);
+    const baseShare = Math.floor(total / participants.length);
+    const remainder = total - baseShare * participants.length;
+    return participants.map((participant, index) => ({
+        participant,
+        amount: baseShare + (index < remainder ? 1 : 0),
+    }));
+}
+
+function calculateSuggestedTransfers(expenses) {
+    const balancesByCurrency = new Map();
+
+    expenses.forEach((expense) => {
+        const shares = expenseSharesInMinorUnits(expense);
+        if (!shares.length) return;
+        const currency = expense.currency || 'JPY';
+        const balances = balancesByCurrency.get(currency) || new Map();
+        const payer = expense.creatorId;
+        const total = Math.round(Number(expense.amount || 0) * (currency === 'JPY' ? 1 : 100));
+        balances.set(payer, (balances.get(payer) || 0) + total);
+
+        shares.forEach(({ participant, amount }) => {
+            balances.set(participant.uid, (balances.get(participant.uid) || 0) - amount);
+            if (participant.uid !== payer && participant.settled) {
+                balances.set(participant.uid, (balances.get(participant.uid) || 0) + amount);
+                balances.set(payer, (balances.get(payer) || 0) - amount);
+            }
+        });
+        balancesByCurrency.set(currency, balances);
+    });
+
+    return [...balancesByCurrency.entries()].flatMap(([currency, balances]) => {
+        const creditors = [...balances].filter(([, balance]) => balance > 0).sort(([first], [second]) => first.localeCompare(second));
+        const debtors = [...balances].filter(([, balance]) => balance < 0).sort(([first], [second]) => first.localeCompare(second));
+        const transfers = [];
+        let creditorIndex = 0;
+        let debtorIndex = 0;
+
+        while (creditorIndex < creditors.length && debtorIndex < debtors.length) {
+            const [to, credit] = creditors[creditorIndex];
+            const [from, debt] = debtors[debtorIndex];
+            const amount = Math.min(credit, -debt);
+            if (amount > 0) transfers.push({ from, to, amount, currency });
+            creditors[creditorIndex][1] -= amount;
+            debtors[debtorIndex][1] += amount;
+            if (creditors[creditorIndex][1] === 0) creditorIndex += 1;
+            if (debtors[debtorIndex][1] === 0) debtorIndex += 1;
+        }
+        return transfers;
+    });
+}
+
+function ParticipantAvatar({ participant, active, canToggleStatus, isPayer, onToggle, onToggleStatus }) {
     const [imageFailed, setImageFailed] = useState(false);
     const initial = (participant.name || '旅').slice(0, 1).toUpperCase();
+    const statusLabel = isPayer ? (participant.settled ? '已先付款' : '尚未付款') : (participant.settled ? '已結清' : '尚未結清');
 
     useEffect(() => {
         setImageFailed(false);
     }, [participant.photoURL]);
 
     function handleClick() {
-        const desktopPointer = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-        if (canToggleStatus && desktopPointer) {
-            onToggleStatus();
-            return;
-        }
         onToggle();
     }
 
     return (
         <div className={`expense-avatar-wrap${active ? ' is-active' : ''}`}>
-            <button className="expense-avatar-button" type="button" aria-label={`${canToggleStatus ? '切換' : '查看'}${participant.name || '使用者'}的結清狀態`} aria-expanded={active} onClick={handleClick}>
+            <button className="expense-avatar-button" type="button" aria-label={`${canToggleStatus ? '切換' : '查看'}${participant.name || '使用者'}的${isPayer ? '付款' : '結清'}狀態`} aria-expanded={active} onClick={handleClick}>
                 {participant.photoURL && !imageFailed ? <img className="expense-avatar" src={participant.photoURL} alt="" onError={() => setImageFailed(true)} /> : <span className="expense-avatar expense-avatar-initial">{initial}</span>}
-                <span className={`expense-avatar-status${participant.settled ? ' is-settled' : ' is-unsettled'}`} aria-label={participant.settled ? '已結清' : '尚未結清'}>{participant.settled ? <Check size={10} /> : <X size={10} />}</span>
+                <span className={`expense-avatar-status${participant.settled ? ' is-settled' : ' is-unsettled'}`} aria-label={statusLabel}>{participant.settled ? <Check size={11} strokeWidth={3} /> : <X size={11} strokeWidth={3} />}</span>
             </button>
             <div className="expense-participant-popover" role="status">
                 <strong>{participant.name || '旅人'}</strong>
                 <span>加入時間：{formatDate(participant.joinedAt)}</span>
-                {canToggleStatus && <button className="expense-popover-status-action" type="button" onClick={onToggleStatus}>{participant.settled ? <><Undo2 size={13} />取消結清</> : <><Check size={13} />標記結清</>}</button>}
+                <span>{statusLabel}</span>
+                {canToggleStatus && <button className="expense-popover-status-action" type="button" onClick={onToggleStatus}>{participant.settled ? <><Undo2 size={13} />{isPayer ? '取消已付款' : '取消結清'}</> : <><Check size={13} />{isPayer ? '標記已付款' : '標記結清'}</>}</button>}
             </div>
         </div>
     );
@@ -124,7 +183,9 @@ function SharedExpenseCard({ expense, user, onJoin, onLeave, onEdit, onRemove, o
     const participantListRef = useRef(null);
     const currentParticipant = participants.find((participant) => participant.uid === user.uid);
     const isOwner = expense.creatorId === user.uid;
-    const personalAmount = Number(expense.amount || 0) / Math.max(participants.length, 1);
+    const personalAmount = expenseSharesInMinorUnits(expense).find(({ participant }) => participant.uid === user.uid)?.amount;
+    const paid = isExpensePaid(expense);
+    const myShareSettled = currentParticipant ? (currentParticipant.uid === expense.creatorId ? paid : currentParticipant.settled) : false;
     const visibleParticipants = participants.slice(0, 5);
     const hiddenParticipants = participants.slice(5);
 
@@ -145,35 +206,28 @@ function SharedExpenseCard({ expense, user, onJoin, onLeave, onEdit, onRemove, o
         <article className="expense-card">
             <div className="expense-card-topline">
                 <span className="expense-category">{expense.category}</span>
-                <div className="expense-card-owner-actions">
-                    <span className="expense-date">{formatDate(expense.createdAt)}</span>
-                    {isOwner && <><button className="expense-icon-action" type="button" aria-label="編輯公帳" title="編輯公帳" onClick={onEdit}><Pencil size={15} /></button><button className="expense-icon-action expense-icon-action-danger" type="button" aria-label="刪除公帳" title="刪除公帳" onClick={onRemove} disabled={working}><Trash2 size={15} /></button></>}
-                </div>
+                {isOwner && <div className="expense-card-owner-actions"><button className="expense-icon-action" type="button" aria-label="編輯公帳" title="編輯公帳" onClick={onEdit}><Pencil size={15} /></button><button className="expense-icon-action expense-icon-action-danger" type="button" aria-label="刪除公帳" title="刪除公帳" onClick={onRemove} disabled={working}><Trash2 size={15} /></button></div>}
             </div>
             <div className="expense-card-title-row">
-                <div><h3>{expense.title}</h3><p>{expense.description || '沒有補充描述'}</p></div>
+                <div><h3>{expense.title}</h3>{expense.description && <p>{expense.description}</p>}</div>
             </div>
-            <div className="expense-meta-grid"><span><Users size={14} />{participants.length} 人分帳</span><span><Wallet size={14} />{expense.paymentMethod}</span><span><Receipt size={14} />建立者：{expense.creatorName}</span></div>
+            <div className="expense-meta-grid"><span><Users size={14} />{participants.length} 人均分</span><span><Wallet size={14} />{expense.paymentMethod}</span><span><Receipt size={14} />{paid ? `付款人：${expense.creatorName}` : '尚未付款'}</span><div className="expense-meta-participants" ref={participantListRef} aria-label="分帳成員"><div className="expense-avatar-row">
+                {visibleParticipants.map((participant) => <ParticipantAvatar key={participant.uid} participant={participant} active={activeParticipantUid === participant.uid} canToggleStatus={canToggleParticipant(participant)} isPayer={participant.uid === expense.creatorId} onToggle={() => setActiveParticipantUid((current) => current === participant.uid ? null : participant.uid)} onToggleStatus={() => onSettle(participant.uid, !participant.settled)} />)}
+                {hiddenParticipants.length > 0 && <div className={`expense-avatar-wrap${activeParticipantUid === '__overflow__' ? ' is-active' : ''}`}>
+                    <button className="expense-avatar-button expense-avatar-overflow" type="button" aria-label={`查看另外 ${hiddenParticipants.length} 位使用者`} aria-expanded={activeParticipantUid === '__overflow__'} onClick={() => setActiveParticipantUid((current) => current === '__overflow__' ? null : '__overflow__')}>+{hiddenParticipants.length}</button>
+                            <div className="expense-participant-popover expense-overflow-popover" role="status">{hiddenParticipants.map((participant) => { const isPayer = participant.uid === expense.creatorId; return <span className="expense-overflow-participant" key={participant.uid}><span className="expense-overflow-avatar">{(participant.name || '旅').slice(0, 1).toUpperCase()}</span><span className="expense-overflow-details"><strong>{participant.name || '旅人'} <em className={`expense-inline-status${participant.settled ? ' is-settled' : ' is-unsettled'}`}>{participant.settled ? <Check size={10} strokeWidth={3} /> : <X size={10} strokeWidth={3} />}</em></strong><small>{isPayer ? (participant.settled ? '已先付款' : '尚未付款') : (participant.settled ? '已結清' : '尚未結清')}</small></span>{canToggleParticipant(participant) && <button className="expense-popover-status-action" type="button" onClick={() => onSettle(participant.uid, !participant.settled)}>{participant.settled ? <><Undo2 size={13} />{isPayer ? '取消已付款' : '取消結清'}</> : <><Check size={13} />{isPayer ? '標記已付款' : '標記結清'}</>}</button>}</span>; })}</div>
+                </div>}
+            </div></div></div>
             <div className="expense-finance-row">
                 <div className="expense-split-summary">
                     <div><span>原始金額</span><strong>{formatAmount(expense.amount, expense.currency)}</strong></div>
-                    <div className={currentParticipant?.settled ? 'is-settled' : ''}>
-                        <span>我的應付</span>
-                        {currentParticipant ? <strong>{formatAmount(personalAmount, expense.currency)}</strong> : <strong className="expense-not-joined">加入後計算</strong>}
-                    </div>
-                </div>
-                <div className="expense-participant-list" ref={participantListRef}>
-                    <div className="expense-participant-heading"><span>分帳成員</span><span>{participants.length} 人</span></div>
-                    <div className="expense-avatar-row">
-                        {visibleParticipants.map((participant) => <ParticipantAvatar key={participant.uid} participant={participant} active={activeParticipantUid === participant.uid} canToggleStatus={canToggleParticipant(participant)} onToggle={() => setActiveParticipantUid((current) => current === participant.uid ? null : participant.uid)} onToggleStatus={() => onSettle(participant.uid, !participant.settled)} />)}
-                        {hiddenParticipants.length > 0 && <div className={`expense-avatar-wrap${activeParticipantUid === '__overflow__' ? ' is-active' : ''}`}>
-                            <button className="expense-avatar-button expense-avatar-overflow" type="button" aria-label={`查看另外 ${hiddenParticipants.length} 位使用者`} aria-expanded={activeParticipantUid === '__overflow__'} onClick={() => setActiveParticipantUid((current) => current === '__overflow__' ? null : '__overflow__')}>+{hiddenParticipants.length}</button>
-                            <div className="expense-participant-popover expense-overflow-popover" role="status">{hiddenParticipants.map((participant) => <span className="expense-overflow-participant" key={participant.uid}><span className="expense-overflow-avatar">{(participant.name || '旅').slice(0, 1).toUpperCase()}</span><span className="expense-overflow-details"><strong>{participant.name || '旅人'} <em className={`expense-inline-status${participant.settled ? ' is-settled' : ' is-unsettled'}`}>{participant.settled ? <Check size={10} /> : <X size={10} />}</em></strong><small>加入時間：{formatDate(participant.joinedAt)}</small></span>{canToggleParticipant(participant) && <button className="expense-popover-status-action" type="button" onClick={() => onSettle(participant.uid, !participant.settled)}>{participant.settled ? <><Undo2 size={13} />取消結清</> : <><Check size={13} />標記結清</>}</button>}</span>)}</div>
-                        </div>}
+                    <div>
+                        <span>我的分攤</span>
+                        {currentParticipant ? <div className="expense-share-value"><strong>{formatAmount(personalAmount / (expense.currency === 'JPY' ? 1 : 100), expense.currency)}</strong><span className={`expense-share-status${myShareSettled ? ' is-settled' : ' is-unsettled'}`} aria-label={myShareSettled ? '已結清' : '尚未結清'}>{myShareSettled ? <Check size={15} /> : <X size={15} />}</span></div> : <strong className="expense-not-joined">加入後計算</strong>}
                     </div>
                 </div>
             </div>
-            <div className="expense-card-actions">{!currentParticipant && <button className="secondary-button" type="button" onClick={onJoin} disabled={working}><UserPlus size={15} />加入分帳</button>}{currentParticipant && !isOwner && <button className="secondary-button" type="button" onClick={onLeave} disabled={working}><UserMinus size={15} />退出分帳</button>}</div>
+            <div className="expense-card-footer"><div className="expense-card-actions">{!currentParticipant && <button className="secondary-button" type="button" onClick={onJoin} disabled={working}><UserPlus size={15} />加入分帳</button>}{currentParticipant && !isOwner && <button className="secondary-button" type="button" onClick={onLeave} disabled={working}><UserMinus size={15} />退出分帳</button>}</div><span className="expense-date">{formatDate(expense.createdAt)}</span></div>
         </article>
     );
 }
@@ -248,18 +302,35 @@ export default function ExpensePage({ user, expenseStore }) {
         };
     }, []);
 
+    const ownedSharedExpenses = useMemo(() => sharedExpenses.filter((expense) => expense.creatorId === user.uid), [sharedExpenses, user.uid]);
     const participatingSharedExpenses = useMemo(() => sharedExpenses.filter((expense) => participantEntries(expense).some((participant) => participant.uid === user.uid)), [sharedExpenses, user.uid]);
+    const suggestedTransfers = useMemo(() => calculateSuggestedTransfers(sharedExpenses), [sharedExpenses]);
+    const participantNames = useMemo(() => {
+        const names = new Map();
+        sharedExpenses.forEach((expense) => participantEntries(expense).forEach((participant) => names.set(participant.uid, participant.name || '旅人')));
+        return names;
+    }, [sharedExpenses]);
     const totalTwd = useMemo(() => {
         if (!jpyToTwd) return null;
         const personalTotal = personalExpenses.reduce((total, expense) => total + (expense.currency === 'JPY' ? Number(expense.amount) * jpyToTwd : Number(expense.amount)), 0);
-        const sharedTotal = participatingSharedExpenses.reduce((total, expense) => {
-            const participant = participantEntries(expense).find((item) => item.uid === user.uid);
-            if (participant?.settled) return total;
-            const personalAmount = Number(expense.amount) / Math.max(participantEntries(expense).length, 1);
-            return total + (expense.currency === 'JPY' ? personalAmount * jpyToTwd : personalAmount);
+        const ownedExpensesTotal = ownedSharedExpenses.reduce((total, expense) => {
+            const multiplier = expense.currency === 'JPY' ? 1 : 100;
+            const amount = Math.round(Number(expense.amount || 0) * multiplier);
+            const settledShares = expenseSharesInMinorUnits(expense).reduce((settledTotal, { participant, amount: share }) => {
+                return participant.uid !== user.uid && participant.settled ? settledTotal + share : settledTotal;
+            }, 0);
+            const outstandingAmount = Math.max(0, amount - settledShares) / multiplier;
+            return total + (expense.currency === 'JPY' ? outstandingAmount * jpyToTwd : outstandingAmount);
         }, 0);
-        return personalTotal + sharedTotal;
-    }, [jpyToTwd, personalExpenses, participatingSharedExpenses, user.uid]);
+        const settledParticipationTotal = participatingSharedExpenses.reduce((total, expense) => {
+            if (expense.creatorId === user.uid) return total;
+            const ownShare = expenseSharesInMinorUnits(expense).find(({ participant }) => participant.uid === user.uid);
+            if (!ownShare?.participant.settled) return total;
+            const share = ownShare.amount / (expense.currency === 'JPY' ? 1 : 100);
+            return total + (expense.currency === 'JPY' ? share * jpyToTwd : share);
+        }, 0);
+        return personalTotal + ownedExpensesTotal + settledParticipationTotal;
+    }, [jpyToTwd, personalExpenses, ownedSharedExpenses, participatingSharedExpenses, user.uid]);
 
     function resetForm() {
         setFormKind(null);
@@ -365,11 +436,12 @@ export default function ExpensePage({ user, expenseStore }) {
             <div className="expense-toolbar"><div className="expense-tabs"><button className={view === 'shared' ? 'active' : ''} type="button" onClick={() => setView('shared')}>公帳清單<span>{sharedExpenses.length}</span></button><button className={view === 'personal' ? 'active' : ''} type="button" onClick={() => setView('personal')}>我的帳目<span>{personalExpenses.length}</span></button></div><button className="primary-button" type="button" onClick={() => openCreate(view)}><Plus size={16} />新增{view === 'shared' ? '公帳' : '個人帳'}</button></div>
             {error && <div className="expense-notice expense-notice-error">{error}</div>}
             {notice && <div className="expense-notice expense-notice-success">{notice}</div>}
+            {view === 'shared' && <section className="expense-settlement-panel" aria-label="建議轉帳"><div className="expense-settlement-heading"><div><p className="section-eyebrow">SETTLEMENT</p><h2>建議轉帳</h2></div><span>所有公帳・同幣別淨額結算</span></div>{suggestedTransfers.length ? <div className="expense-transfer-list">{suggestedTransfers.map((transfer, index) => <div className="expense-transfer-row" key={`${transfer.currency}-${transfer.from}-${transfer.to}-${index}`}><strong>{participantNames.get(transfer.from) || '旅人'}</strong><ArrowRight size={15} /><strong>{participantNames.get(transfer.to) || '旅人'}</strong><span>轉帳</span><b>{formatAmount(transfer.amount / (transfer.currency === 'JPY' ? 1 : 100), transfer.currency)}</b></div>)}</div> : <p className="expense-settlement-empty">目前沒有待結清款項</p>}<p className="expense-settlement-note">所有公帳的未結清分攤都會計入；同一成員間的金額會先合併抵銷。</p></section>}
             {formKind && <ExpenseForm kind={formKind} initialValue={formInitialValue} isEditing={Boolean(editingExpense)} onSubmit={saveExpense} onCancel={resetForm} working={working} />}
             {loadState === 'loading' ? <div className="expense-empty">正在讀取帳目…</div> : view === 'shared' ? (
                 <div className="expense-list">{sharedExpenses.length ? sharedExpenses.map((expense) => <SharedExpenseCard key={expense.id} expense={expense} user={user} onJoin={() => joinExpense(expense)} onLeave={() => leaveExpense(expense)} onEdit={() => openEdit('shared', expense)} onRemove={() => removeExpense('shared', expense)} onSettle={(participantUid, settled) => settleParticipant(expense, participantUid, settled)} working={working} />) : <div className="expense-empty"><Receipt size={26} /><strong>還沒有公帳</strong><span>先建立第一筆旅程公帳吧。</span></div>}</div>
             ) : <div className="expense-list">{personalExpenses.length ? personalExpenses.map((expense) => <PersonalExpenseCard key={expense.id} expense={expense} onEdit={() => openEdit('personal', expense)} onRemove={() => removeExpense('personal', expense)} working={working} />) : <div className="expense-empty"><Wallet size={26} /><strong>還沒有個人帳目</strong><span>記下只屬於自己的旅程支出。</span></div>}</div>}
-            <div className="expense-total-bar"><div><span>目前個人應付總額</span><strong>{displayTotal === null ? '匯率讀取中…' : formatAmount(displayTotal, displayCurrency)}</strong><small>{rateUpdatedAt ? `即時匯率更新於 ${formatDate(rateUpdatedAt.getTime())}` : '正在取得即時匯率'}</small></div><div className="currency-toggle" aria-label="總額顯示幣別"><button className={displayCurrency === 'TWD' ? 'active' : ''} type="button" onClick={() => setDisplayCurrency('TWD')}>台幣</button><button className={displayCurrency === 'JPY' ? 'active' : ''} type="button" onClick={() => setDisplayCurrency('JPY')}>日圓</button></div></div>
+            <div className="expense-total-bar"><div><span>個人支出合計</span><strong>{displayTotal === null ? '匯率讀取中…' : formatAmount(displayTotal, displayCurrency)}</strong><small>{rateUpdatedAt ? `個人帳目＋我建立的公帳扣除已結清分攤・匯率更新於 ${formatDate(rateUpdatedAt.getTime())}` : '個人帳目＋我建立的公帳扣除已結清分攤・正在取得即時匯率'}</small></div><div className="currency-toggle" aria-label="總額顯示幣別"><button className={displayCurrency === 'TWD' ? 'active' : ''} type="button" onClick={() => setDisplayCurrency('TWD')}>台幣</button><button className={displayCurrency === 'JPY' ? 'active' : ''} type="button" onClick={() => setDisplayCurrency('JPY')}>日圓</button></div></div>
         </section>
     );
 }

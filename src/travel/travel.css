@@ -3165,6 +3165,93 @@
   margin-bottom: 18px;
 }
 
+.expense-settlement-panel {
+  margin-bottom: 18px;
+  padding: 16px 18px;
+  border: 1px solid #3c4a42;
+  border-left: 3px solid #9bb28f;
+  border-radius: 9px;
+  background: #1a2420;
+}
+
+.expense-settlement-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.expense-settlement-heading .section-eyebrow {
+  margin: 0 0 3px;
+  color: #a9c2a3;
+}
+
+.expense-settlement-heading h2 {
+  margin: 0;
+  color: #eef1e9;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.expense-settlement-heading>span,
+.expense-settlement-note {
+  color: #a5b0a8;
+  font-size: 11px;
+}
+
+.expense-transfer-list {
+  display: grid;
+  border-top: 1px solid #35433b;
+}
+
+.expense-transfer-row {
+  display: grid;
+  grid-template-columns: minmax(70px, 1fr) 18px minmax(70px, 1fr) auto auto;
+  align-items: center;
+  gap: 9px;
+  min-height: 42px;
+  border-bottom: 1px solid #303c35;
+  color: #b9c4bc;
+  font-size: 12px;
+}
+
+.expense-transfer-row:last-child {
+  border-bottom: 0;
+}
+
+.expense-transfer-row svg {
+  color: #a9c2a3;
+}
+
+.expense-transfer-row strong {
+  overflow: hidden;
+  color: #e2e9df;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.expense-transfer-row b {
+  color: #e6c88f;
+  font-size: 13px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.expense-settlement-empty {
+  margin: 0;
+  padding: 11px 0;
+  border-top: 1px solid #35433b;
+  color: #a9c2a3;
+  font-size: 13px;
+}
+
+.expense-settlement-note {
+  margin: 10px 0 0;
+  line-height: 1.5;
+}
+
 .expense-tabs {
   display: flex;
   gap: 4px;
@@ -3651,7 +3738,7 @@
 
 .expense-avatar-wrap:hover,
 .expense-avatar-wrap.is-active {
-  z-index: 5;
+  z-index: 20;
 }
 
 .expense-avatar {
@@ -3681,6 +3768,7 @@
 
 .expense-participant-popover {
   position: absolute;
+  z-index: 21;
   top: calc(100% + 8px);
   left: 50%;
   display: none;
@@ -3946,6 +4034,33 @@
 
   .expense-toolbar>.primary-button {
     width: 100%;
+  }
+
+  .expense-settlement-panel {
+    padding: 13px;
+  }
+
+  .expense-settlement-heading {
+    align-items: flex-start;
+  }
+
+  .expense-settlement-heading>span {
+    max-width: 48%;
+    text-align: right;
+  }
+
+  .expense-transfer-row {
+    grid-template-columns: minmax(48px, 1fr) 16px minmax(48px, 1fr) auto;
+    gap: 6px;
+    font-size: 11px;
+  }
+
+  .expense-transfer-row>span {
+    display: none;
+  }
+
+  .expense-transfer-row b {
+    font-size: 12px;
   }
 
   .expense-form {
@@ -4318,5 +4433,138 @@
 
   .lodging-price-fact strong {
     padding-right: 0;
+  }
+}
+
+.expense-card:not(.personal-expense-card) .expense-card-topline {
+  min-height: 28px;
+}
+
+.expense-card:not(.personal-expense-card) .expense-card-title-row {
+  margin-top: 7px;
+}
+
+.expense-card:not(.personal-expense-card) .expense-meta-grid {
+  padding-bottom: 12px;
+  border-bottom: 1px solid #2d3942;
+}
+
+.expense-card:not(.personal-expense-card) .expense-finance-row {
+  grid-template-columns: minmax(300px, .82fr) minmax(220px, 1fr);
+}
+
+.expense-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 32px;
+  margin-top: 13px;
+  padding-top: 10px;
+  border-top: 1px solid #2d3942;
+}
+
+.expense-card-footer .expense-card-actions {
+  justify-content: flex-start;
+  margin-top: 0;
+}
+
+.expense-card-footer .expense-date {
+  flex: 0 0 auto;
+  text-align: right;
+}
+
+@media (max-width: 760px) {
+  .expense-card-footer {
+    margin-top: 11px;
+  }
+
+  .expense-card-footer .expense-date {
+    font-size: 10px;
+  }
+}
+
+.expense-card:not(.personal-expense-card) .expense-meta-participants {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  margin-left: auto;
+}
+
+.expense-card:not(.personal-expense-card) .expense-meta-participants .expense-avatar-row {
+  min-height: 40px;
+  margin: 0;
+}
+
+.expense-card:not(.personal-expense-card) .expense-finance-row {
+  display: block;
+  margin-top: 12px;
+}
+
+.expense-card:not(.personal-expense-card) .expense-split-summary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.expense-card:not(.personal-expense-card) .expense-split-summary>div {
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 52px;
+  box-sizing: border-box;
+  padding: 8px 10px;
+}
+
+.expense-card:not(.personal-expense-card) .expense-split-summary>div>span:first-child {
+  white-space: nowrap;
+}
+
+.expense-card:not(.personal-expense-card) .expense-split-summary>div>strong {
+  justify-self: end;
+  white-space: nowrap;
+}
+
+.expense-share-value {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.expense-share-value strong {
+  white-space: nowrap;
+}
+
+.expense-share-status {
+  display: inline-grid;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  place-items: center;
+}
+
+.expense-share-status.is-settled {
+  color: #66d17a;
+}
+
+.expense-share-status.is-unsettled {
+  color: #f07870;
+}
+
+@media (max-width: 480px) {
+  .expense-card:not(.personal-expense-card) .expense-meta-participants {
+    flex-basis: 100%;
+    justify-content: flex-end;
+  }
+
+  .expense-card:not(.personal-expense-card) .expense-split-summary {
+    gap: 7px;
+  }
+
+  .expense-card:not(.personal-expense-card) .expense-split-summary>div {
+    gap: 5px;
+    padding: 8px 7px;
   }
 }
