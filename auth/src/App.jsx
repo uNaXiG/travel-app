@@ -50,7 +50,8 @@ function App() {
     return onAuthStateChanged(auth, (nextUser) => {
       setFirebaseUser(nextUser);
       setAuthReady(true);
-      const destination = nextUser ? '/main' : '/';
+      const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
+      const destination = nextUser ? `${basePath}/main` : `${basePath}/`;
       if (window.location.pathname !== destination) {
         window.history.replaceState(null, '', destination);
       }
@@ -156,7 +157,7 @@ function App() {
             </>
           ) : (
             <>
-              {isRegister }
+              {isRegister}
               <h2 className="form-intro">
                 {isRegister ? '建立帳號' : '登入開始旅行'}
               </h2>
