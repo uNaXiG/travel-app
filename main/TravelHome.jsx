@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { DndContext, KeyboardSensor, MouseSensor, TouchSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -29,6 +29,7 @@ import {
   Plane,
   ShoppingBag,
   Plus,
+  Settings,
   Sparkles,
   Sun,
   Train,
@@ -491,7 +492,28 @@ export default function TravelHome({ user, onSignOut, packingStore }) {
   const [packingActionError, setPackingActionError] = useState('');
   const [packingWorking, setPackingWorking] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef(null);
   const userName = user?.displayName || user?.email?.split('@')[0] || '旅人';
+
+  useEffect(() => {
+    if (!profileMenuOpen) return undefined;
+
+    function handleMenuDismiss(event) {
+      if (!profileMenuRef.current?.contains(event.target)) setProfileMenuOpen(false);
+    }
+
+    function handleMenuKeyDown(event) {
+      if (event.key === 'Escape') setProfileMenuOpen(false);
+    }
+
+    document.addEventListener('pointerdown', handleMenuDismiss);
+    document.addEventListener('keydown', handleMenuKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handleMenuDismiss);
+      document.removeEventListener('keydown', handleMenuKeyDown);
+    };
+  }, [profileMenuOpen]);
 
   useEffect(() => {
     let active = true;
@@ -625,9 +647,6 @@ export default function TravelHome({ user, onSignOut, packingStore }) {
         </nav>
         <div className="sidebar-bottom">
           <div className="sidebar-date"><CalendarDays size={15} /><span>2026.10.22 — 10.26</span></div>
-          <button className="signout-button" type="button" onClick={handleSignOut} disabled={signingOut}>
-            <LogOut size={16} />{signingOut ? '登出中…' : '登出'}
-          </button>
         </div>
       </aside>
 
@@ -635,7 +654,31 @@ export default function TravelHome({ user, onSignOut, packingStore }) {
         <header className="trip-topbar">
           <div className="mobile-brand"><span className="trip-brand-mark" aria-hidden="true"><Compass size={16} strokeWidth={1.7} /></span><strong>NAGOYA<small>TRAVEL NOTES</small></strong></div>
           <div className="breadcrumb"><span>我的旅程</span><span>/</span><strong>{navItems.find((item) => item.id === section)?.label}</strong></div>
-          <div className="topbar-user"><span>你好，{userName}</span><UserBadge user={user} /></div>
+          <div className="topbar-user">
+            <span>你好，{userName}</span>
+            <div className="user-menu" ref={profileMenuRef}>
+              <button
+                className="user-menu-trigger"
+                type="button"
+                aria-label="開啟使用者選單"
+                aria-expanded={profileMenuOpen}
+                aria-haspopup="menu"
+                onClick={() => setProfileMenuOpen((isOpen) => !isOpen)}
+              >
+                <UserBadge user={user} />
+              </button>
+              {profileMenuOpen && (
+                <div className="user-menu-dropdown" role="menu">
+                  <button className="user-menu-item" type="button" role="menuitem" disabled>
+                    <Settings size={15} />設置
+                  </button>
+                  <button className="user-menu-item user-menu-signout" type="button" role="menuitem" onClick={handleSignOut} disabled={signingOut}>
+                    <LogOut size={15} />{signingOut ? '登出中…' : '登出'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </header>
 
         <main className="trip-content">
