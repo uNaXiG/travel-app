@@ -872,7 +872,6 @@
 .transport-group {
   margin-top: 27px;
   padding-bottom: 20px;
-  border-bottom: 2px solid #435b6d;
 }
 
 .transport-section-heading {
@@ -1070,7 +1069,6 @@
   gap: 9px;
   margin-top: 12px;
   padding-top: 10px;
-  border-top: 1px solid #35434d;
 }
 
 .flight-fare>span {
@@ -4066,5 +4064,259 @@
   to {
     opacity: 0;
     transform: translateY(-4px);
+  }
+}
+
+.trip-status-card {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 13px;
+  border: 1px solid #3b4650;
+  border-radius: 11px;
+  color: #dce4e2;
+  background: #151d23;
+}
+
+.trip-status-stack {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  width: 100%;
+}
+
+.trip-status-stack-mobile {
+  display: none;
+}
+
+.trip-status-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.trip-status-heading>div {
+  display: grid;
+  gap: 4px;
+}
+
+.trip-status-heading>svg {
+  color: #d0aa73;
+}
+
+.trip-status-kicker {
+  color: #d0aa73;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+}
+
+.trip-status-heading strong {
+  color: #f0f1ed;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.trip-calendar {
+  display: grid;
+  gap: 7px;
+}
+
+.trip-calendar-month {
+  color: #e4c486;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.trip-calendar-weekdays,
+.trip-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+  text-align: center;
+}
+
+.trip-calendar-weekdays {
+  color: #89969c;
+  font-size: 8px;
+}
+
+.trip-calendar-day,
+.trip-calendar-empty {
+  display: grid;
+  min-height: 22px;
+  place-items: center;
+  color: #bdc8ca;
+  font-size: 9px;
+}
+
+.trip-calendar-day.is-trip-day {
+  color: #171a19;
+  background: #d0aa73;
+  font-weight: 700;
+}
+
+.trip-calendar-day.is-trip-start {
+  border-radius: 7px 0 0 7px;
+}
+
+.trip-calendar-day.is-trip-end {
+  border-radius: 0 7px 7px 0;
+}
+
+.trip-countdown {
+  display: grid;
+  gap: 6px;
+}
+
+.trip-countdown>span {
+  color: #aebbc0;
+  font-size: 9px;
+}
+
+.trip-countdown-values {
+  display: flex;
+  align-items: baseline;
+  width: 100%;
+  min-width: 0;
+  justify-content: space-between;
+  gap: 2px;
+}
+
+.trip-countdown-values strong {
+  display: inline-flex;
+  min-width: 0;
+  flex: 1;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+  color: #f1d9af;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.trip-countdown-values small {
+  margin-left: 0;
+  color: #9ba8ad;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.trip-countdown-values i {
+  flex: 0 0 auto;
+  color: #6f7d83;
+  font-size: 14px;
+  font-style: normal;
+}
+
+@media (max-width: 760px) {
+  .trip-status-stack-mobile {
+    display: grid;
+    margin-top: 24px;
+  }
+
+  .trip-status-stack-mobile .trip-status-card {
+    padding: 15px;
+  }
+
+  .trip-status-stack-mobile .trip-calendar-day,
+  .trip-status-stack-mobile .trip-calendar-empty {
+    min-height: 31px;
+    font-size: 11px;
+  }
+
+  .trip-status-stack-mobile .trip-calendar-weekdays {
+    font-size: 9px;
+  }
+
+  .trip-status-stack-mobile .trip-countdown-values {
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .trip-status-stack-mobile .trip-countdown-values strong {
+    font-size: 25px;
+  }
+
+  .trip-status-stack-mobile .trip-countdown-values small {
+    font-size: 25px;
+  }
+}
+
+.travel-currency-toggle {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid #4a4639;
+  border-radius: 6px;
+  background: #1c252d;
+}
+
+.travel-currency-toggle button {
+  min-height: 24px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 4px;
+  color: #9fabad;
+  background: transparent;
+  font: inherit;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.travel-currency-toggle button.active {
+  color: #171a19;
+  background: #d0aa73;
+  font-weight: 700;
+}
+
+.lodging-price-fact {
+  display: grid !important;
+  position: relative;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  column-gap: 10px;
+}
+
+.lodging-price-fact>span {
+  grid-column: 1 / -1;
+}
+
+.lodging-price-fact .travel-currency-toggle {
+  position: static;
+  display: inline-flex;
+  grid-template-columns: none;
+  align-self: end;
+}
+
+.lodging-price-fact strong {
+  display: block;
+  padding-right: 0;
+}
+
+@media (max-width: 760px) {
+  .flight-fare {
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+
+  .flight-fare .travel-currency-toggle {
+    margin-left: auto;
+  }
+
+  .lodging-price-fact .travel-currency-toggle {
+    position: static;
+    margin-top: 4px;
+  }
+
+  .lodging-price-fact strong {
+    padding-right: 0;
   }
 }

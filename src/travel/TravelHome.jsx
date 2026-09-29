@@ -116,6 +116,52 @@ function searchUrl(query) {
   return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
 }
 
+function useJpyToTwdRate() {
+  const [rate, setRate] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    async function loadRate() {
+      try {
+        const response = await fetch('https://open.er-api.com/v6/latest/JPY');
+        if (!response.ok) throw new Error('Exchange rate request failed');
+        const result = await response.json();
+        const nextRate = Number(result.rates?.TWD);
+        if (active && nextRate) setRate(nextRate);
+      } catch {
+        if (active) setRate(null);
+      }
+    }
+    loadRate();
+    const interval = window.setInterval(loadRate, 30 * 60 * 1000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  return rate;
+}
+
+function formatTravelAmount(amountTwd, currency, jpyToTwd) {
+  if (!jpyToTwd) return '匯率讀取中…';
+  const amount = currency === 'JPY' ? amountTwd / jpyToTwd : amountTwd;
+  return new Intl.NumberFormat('zh-TW', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: currency === 'JPY' ? 0 : 0,
+  }).format(amount);
+}
+
+function CurrencyToggle({ currency, onChange }) {
+  return (
+    <div className="travel-currency-toggle" aria-label="切換金額幣別">
+      <button className={currency === 'TWD' ? 'active' : ''} type="button" onClick={() => onChange('TWD')}>台幣</button>
+      <button className={currency === 'JPY' ? 'active' : ''} type="button" onClick={() => onChange('JPY')}>日圓</button>
+    </div>
+  );
+}
+
 function isRealtimeDatabasePermissionError(error) {
   return error.code === 'PERMISSION_DENIED'
     || error.code === 'permission-denied'
@@ -219,6 +265,37 @@ function DayCard({ day, weather, isOpen, onToggle }) {
   );
 }
 
+function TripStatusCard({ mobile = false }) {
+  const [now, setNow] = useState(Date.now());
+  const tripStart = new Date(2026, 9, 22).getTime();
+  const tripEnd = new Date(2026, 9, 26, 23, 59, 59).getTime();
+  const countdown = Math.max(tripStart - now, 0);
+  const days = Math.floor(countdown / 86400000);
+  const hours = Math.floor((countdown % 86400000) / 3600000);
+  const minutes = Math.floor((countdown % 3600000) / 60000);
+  const seconds = Math.floor((countdown % 60000) / 1000);
+  const isOngoing = now >= tripStart && now <= tripEnd;
+  const isFinished = now > tripEnd;
+  const firstDayOffset = new Date(2026, 9, 1).getDay();
+  const calendarDays = Array.from({ length: 31 }, (_, index) => index + 1);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  return (
+    <div className={`trip-status-stack${mobile ? ' trip-status-stack-mobile' : ''}`} aria-label="旅程日期與倒數">
+      <section className="trip-status-card trip-calendar-card">
+        <div className="trip-calendar"><div className="trip-calendar-month">2026 年 10 月</div><div className="trip-calendar-weekdays">{['日', '一', '二', '三', '四', '五', '六'].map((weekday) => <span key={weekday}>{weekday}</span>)}</div><div className="trip-calendar-grid">{Array.from({ length: firstDayOffset }, (_, index) => <span className="trip-calendar-empty" key={`empty-${index}`} />)}{calendarDays.map((day) => <span className={`trip-calendar-day${day >= 22 && day <= 26 ? ' is-trip-day' : ''}${day === 22 ? ' is-trip-start' : ''}${day === 26 ? ' is-trip-end' : ''}`} key={day}>{day}</span>)}</div></div>
+      </section>
+      <section className="trip-status-card trip-countdown-card">
+        <div className="trip-countdown">{!isFinished && !isOngoing && <div className="trip-countdown-values"><strong>{String(days).padStart(2, '0')}<small>日</small></strong><i>:</i><strong>{String(hours).padStart(2, '0')}<small>時</small></strong><i>:</i><strong>{String(minutes).padStart(2, '0')}<small>分</small></strong><i>:</i><strong>{String(seconds).padStart(2, '0')}<small>秒</small></strong></div>}</div>
+      </section>
+    </div>
+  );
+}
+
 function TripOverview({ weather }) {
   const [openDay, setOpenDay] = useState(getInitialOpenDay);
   const [pendingScrollDay, setPendingScrollDay] = useState(null);
@@ -264,6 +341,7 @@ function TripOverview({ weather }) {
           ))}
         </div>
       </section>
+      <TripStatusCard mobile />
     </>
   );
 }
@@ -432,6 +510,8 @@ function PackingListPage({ items, loadState, error, actionError, working, onAdd,
 }
 
 function TransportationPage() {
+  const [currency, setCurrency] = useState('TWD');
+  const jpyToTwd = useJpyToTwdRate();
   return (
     <section className="detail-page">
       <div className="page-heading"><p className="section-eyebrow">GETTING AROUND</p><h1>交通資訊</h1></div>
@@ -447,7 +527,7 @@ function TransportationPage() {
               <div className="flight-card-top"><span className="flight-direction">{flight.direction}</span><span>{flight.date}</span></div>
               <div className="flight-airline"><span className="flight-icon"><Plane size={18} /></span><strong>{flight.airline}</strong></div>
               <div className="flight-route"><div><span>{flight.departureTimezone}</span><strong>{flight.departure}</strong><small>{index === 0 ? '台灣' : '名古屋'}</small></div><div className="flight-route-line"><span>{flight.route}</span><i><Plane size={15} /></i></div><div><span>{flight.arrivalTimezone}</span><strong>{flight.arrival}</strong><small>{index === 0 ? '名古屋' : '台灣'}</small></div></div>
-              <div className="flight-fare"><span>每人票價</span><strong>{flight.fare}<small> / 人</small></strong></div>
+              <div className="flight-fare"><span>每人票價</span><strong>{formatTravelAmount(Number(flight.fare.replace(',', '')), currency, jpyToTwd)}<small> / 人</small></strong><CurrencyToggle currency={currency} onChange={setCurrency} /></div>
             </article>
           ))}
         </div>
@@ -472,6 +552,8 @@ function TransportationPage() {
 }
 
 function LodgingPage() {
+  const [currency, setCurrency] = useState('TWD');
+  const jpyToTwd = useJpyToTwdRate();
   return (
     <section className="detail-page">
       <div className="page-heading"><p className="section-eyebrow">YOUR HOME IN NAGOYA</p><h1>住宿資訊</h1><p>四個晚上的名古屋旅行基地。</p></div>
@@ -482,7 +564,7 @@ function LodgingPage() {
           <h2>{lodgingInfo.name}</h2>
           <a className="lodging-address" href={mapsUrl(lodgingInfo.address)} target="_blank" rel="noreferrer"><MapPin size={16} /><span>{lodgingInfo.address}</span><ExternalLink size={14} /></a>
           <p className="lodging-note">{lodgingInfo.note}</p>
-          <div className="lodging-facts"><div><span>住宿晚數</span><strong>{lodgingInfo.nights}</strong></div><div><span>住宿金額</span><strong>{lodgingInfo.price}</strong></div></div>
+          <div className="lodging-facts"><div><span>住宿晚數</span><strong>{lodgingInfo.nights}</strong></div><div className="lodging-price-fact"><span>住宿金額</span><strong>{formatTravelAmount(Number(lodgingInfo.price.replace(/[^0-9]/g, '')), currency, jpyToTwd)}</strong><CurrencyToggle currency={currency} onChange={setCurrency} /></div></div>
         </div>
       </article>
     </section>
@@ -671,7 +753,7 @@ export default function TravelHome({ user, onSignOut, packingStore, expenseStore
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <div className="sidebar-date"><CalendarDays size={15} /><span>2026.10.22 — 10.26</span></div>
+          <TripStatusCard />
         </div>
       </aside>
 
