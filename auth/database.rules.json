@@ -1,5 +1,18 @@
 {
   "rules": {
+    "sharedExpenses": {
+      ".read": "auth != null",
+      "$expenseId": {
+        ".write": "auth != null && (data.child('creatorId').val() === auth.uid || (!data.exists() && newData.child('creatorId').val() === auth.uid))",
+        ".validate": "newData.hasChildren(['title', 'description', 'amount', 'currency', 'category', 'paymentMethod', 'creatorId', 'creatorName', 'createdAt', 'participants']) && newData.child('title').isString() && newData.child('title').val().length > 0 && newData.child('title').val().length <= 60 && newData.child('description').isString() && newData.child('amount').isNumber() && newData.child('amount').val() > 0 && (newData.child('currency').val() === 'JPY' || newData.child('currency').val() === 'TWD') && newData.child('creatorId').isString() && newData.child('creatorName').isString()",
+        "participants": {
+          "$uid": {
+            ".write": "auth != null && ((auth.uid === $uid && root.child('sharedExpenses').child($expenseId).child('creatorId').val() !== auth.uid) || (root.child('sharedExpenses').child($expenseId).child('creatorId').val() === auth.uid && $uid !== auth.uid))",
+            ".validate": "newData.hasChildren(['uid', 'name', 'joinedAt', 'settled']) && newData.child('uid').val() === $uid && newData.child('name').isString() && newData.child('settled').isBoolean() && (root.child('sharedExpenses').child($expenseId).child('creatorId').val() === auth.uid || newData.child('settled').val() === false)"
+          }
+        }
+      }
+    },
     "users": {
       "$uid": {
         "packingItems": {
@@ -21,6 +34,13 @@
             "updatedAt": {
               ".validate": "newData.isNumber()"
             }
+          }
+        },
+        "expenses": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid",
+          "$expenseId": {
+            ".validate": "newData.hasChildren(['title', 'description', 'amount', 'currency', 'category', 'paymentMethod', 'createdAt']) && newData.child('title').isString() && newData.child('title').val().length > 0 && newData.child('title').val().length <= 60 && newData.child('description').isString() && newData.child('amount').isNumber() && newData.child('amount').val() > 0 && (newData.child('currency').val() === 'JPY' || newData.child('currency').val() === 'TWD')"
           }
         }
       }

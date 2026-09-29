@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { DndContext, KeyboardSensor, MouseSensor, TouchSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import ExpensePage from './ExpensePage.jsx';
 import {
   AlertTriangle,
   ArrowRight,
@@ -27,6 +28,7 @@ import {
   MapPin,
   Pencil,
   Plane,
+  Receipt,
   ShoppingBag,
   Plus,
   Settings,
@@ -187,7 +189,7 @@ function DayCard({ day, weather, isOpen, onToggle }) {
   const guideSearch = searchUrl(`${day.area} 景點故事 旅遊攻略 交通 建議`);
   return (
     <article className={`day-card${isOpen ? ' day-open' : ''}`}>
-      <button className="day-card-heading" type="button" onClick={onToggle} aria-expanded={isOpen}>
+      <button id={`day-card-heading-${day.id}`} className="day-card-heading" type="button" onClick={onToggle} aria-expanded={isOpen}>
         <span className="day-index">{String(day.id).padStart(2, '0')}</span>
         <span className="day-title-group">
           <span className="day-date">{day.weekday}　·　{day.date}</span>
@@ -219,6 +221,17 @@ function DayCard({ day, weather, isOpen, onToggle }) {
 
 function TripOverview({ weather }) {
   const [openDay, setOpenDay] = useState(getInitialOpenDay);
+
+  function toggleDay(dayId) {
+    const isChangingDay = openDay !== dayId;
+    setOpenDay(openDay === dayId ? null : dayId);
+    if (!isChangingDay) return;
+
+    window.requestAnimationFrame(() => {
+      document.getElementById(`day-card-heading-${dayId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
   return (
     <>
       <section className="trip-hero">
@@ -240,7 +253,7 @@ function TripOverview({ weather }) {
         <div className="weather-disclaimer"><Info size={14} />顯示各地目前觀測天氣，每 30 分鐘更新；不是 10 月行程日預報。</div>
         <div className="day-list">
           {itineraryDays.map((day) => (
-            <DayCard key={day.id} day={day} weather={weather} isOpen={openDay === day.id} onToggle={() => setOpenDay(openDay === day.id ? null : day.id)} />
+            <DayCard key={day.id} day={day} weather={weather} isOpen={openDay === day.id} onToggle={() => toggleDay(day.id)} />
           ))}
         </div>
       </section>
@@ -482,7 +495,7 @@ function UserBadge({ user }) {
     : <span className="user-avatar user-initial">{initial}</span>;
 }
 
-export default function TravelHome({ user, onSignOut, packingStore }) {
+export default function TravelHome({ user, onSignOut, packingStore, expenseStore }) {
   const [section, setSection] = useState('itinerary');
   const [weather, setWeather] = useState({});
   const [weatherUpdated, setWeatherUpdated] = useState(null);
@@ -514,6 +527,10 @@ export default function TravelHome({ user, onSignOut, packingStore }) {
       document.removeEventListener('keydown', handleMenuKeyDown);
     };
   }, [profileMenuOpen]);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [section]);
 
   useEffect(() => {
     let active = true;
@@ -628,6 +645,7 @@ export default function TravelHome({ user, onSignOut, packingStore }) {
     { id: 'itinerary', label: '旅程總覽', icon: Map },
     { id: 'transport', label: '交通資訊', icon: Plane },
     { id: 'lodging', label: '住宿資訊', icon: BedDouble },
+    { id: 'expenses', label: '記帳幫手', icon: Receipt },
     { id: 'packing', label: '攜帶清單', icon: ClipboardList },
   ];
 
@@ -685,6 +703,7 @@ export default function TravelHome({ user, onSignOut, packingStore }) {
           {section === 'itinerary' && <TripOverview weather={weather} />}
           {section === 'transport' && <TransportationPage />}
           {section === 'lodging' && <LodgingPage />}
+          {section === 'expenses' && <ExpensePage user={user} expenseStore={expenseStore} />}
           {section === 'packing' && <PackingListPage items={packingItems} loadState={packingLoadState} error={packingError} actionError={packingActionError} working={packingWorking} onAdd={addPackingItem} onToggle={togglePackingItem} onUpdate={updatePackingItem} onRemove={removePackingItem} onReorder={reorderPackingItems} clearActionError={() => setPackingActionError('')} />}
           {section === 'itinerary' && weatherUpdated && <p className="weather-updated"><Wind size={13} />天氣資料更新於 {weatherUpdated.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}（日本時間）</p>}
         </main>

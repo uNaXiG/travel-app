@@ -11,6 +11,7 @@ import {
 } from 'firebase/auth';
 import { ArrowLeft, ArrowRight, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, MapPin } from 'lucide-react';
 import { auth, hasFirebaseConfig } from './firebase.js';
+import { expenseStore } from './expenseStore.js';
 import { packingStore } from './packingStore.js';
 import TravelHome from '../../main/TravelHome.jsx';
 
@@ -126,7 +127,7 @@ function App() {
   }
 
   if (firebaseUser) {
-    return <TravelHome user={firebaseUser} onSignOut={() => signOut(auth)} packingStore={packingStore} />;
+    return <TravelHome user={firebaseUser} onSignOut={() => signOut(auth)} packingStore={packingStore} expenseStore={expenseStore} />;
   }
 
   return (
