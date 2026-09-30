@@ -2127,7 +2127,7 @@
   gap: 12px;
 }
 
-.event-card-heading > h3 {
+.event-card-heading>h3 {
   flex: 1 1 auto;
 }
 
@@ -2597,6 +2597,18 @@
     gap: 8px;
   }
 
+  .transport-group .transport-section-heading {
+    display: grid;
+    grid-template-columns: 33px minmax(0, 1fr);
+    column-gap: 8px;
+    row-gap: 5px;
+  }
+
+  .transport-group .transport-section-heading>div {
+    grid-column: 2;
+    min-width: 0;
+  }
+
   .transport-section-icon {
     width: 33px;
     height: 33px;
@@ -2604,11 +2616,13 @@
 
   .transport-section-heading h2 {
     font-size: 19px;
+    overflow-wrap: anywhere;
   }
 
-  .transport-section-side {
-    width: 100%;
-    margin: -5px 0 0 41px;
+  .transport-group .transport-section-side {
+    grid-column: 2;
+    width: auto;
+    margin: 0;
     font-size: 9px;
   }
 

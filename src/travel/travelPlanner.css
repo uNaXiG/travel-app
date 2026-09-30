@@ -1340,11 +1340,11 @@
   }
 
   .planner-fields-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .planner-repeat-card .planner-fields-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .planner-repeat-card .flight-editor-grid .flight-fare-field,
