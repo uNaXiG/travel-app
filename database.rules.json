@@ -1,10 +1,53 @@
 {
   "rules": {
+    "trips": {
+      "$tripId": {
+        ".read": "auth != null",
+        ".write": "auth != null && ((!data.exists() && newData.child('ownerId').val() === auth.uid) || (!newData.exists() && data.child('ownerId').val() === auth.uid))",
+        ".validate": "newData.hasChildren(['ownerId', 'title', 'description', 'country', 'startDate', 'endDate', 'participants']) && newData.child('ownerId').isString() && newData.child('participants').child(newData.child('ownerId').val()).exists() && newData.child('title').isString() && newData.child('title').val().length > 0 && newData.child('title').val().length <= 80 && newData.child('description').isString() && newData.child('description').val().length <= 500 && newData.child('country').isString() && newData.child('country').val().length > 0 && newData.child('startDate').isString() && newData.child('endDate').isString()",
+        "ownerId": {
+          ".write": false
+        },
+        "title": {
+          ".write": "auth != null && data.parent().child('participants').child(auth.uid).exists()"
+        },
+        "description": {
+          ".write": "auth != null && data.parent().child('participants').child(auth.uid).exists()"
+        },
+        "country": {
+          ".write": "auth != null && data.parent().child('participants').child(auth.uid).exists()"
+        },
+        "startDate": {
+          ".write": "auth != null && data.parent().child('participants').child(auth.uid).exists()"
+        },
+        "endDate": {
+          ".write": "auth != null && data.parent().child('participants').child(auth.uid).exists()"
+        },
+        "flights": {
+          ".write": "auth != null && data.parent().child('participants').child(auth.uid).exists()"
+        },
+        "lodging": {
+          ".write": "auth != null && data.parent().child('participants').child(auth.uid).exists()"
+        },
+        "itinerary": {
+          ".write": "auth != null && data.parent().child('participants').child(auth.uid).exists()"
+        },
+        "updatedAt": {
+          ".write": "auth != null && data.parent().child('participants').child(auth.uid).exists()"
+        },
+        "participants": {
+          "$participantUid": {
+            ".write": "auth != null && ((auth.uid === $participantUid && (!data.exists() || !newData.exists())) || root.child('trips').child($tripId).child('ownerId').val() === auth.uid)",
+            ".validate": "newData.hasChildren(['uid', 'name', 'joinedAt']) && newData.child('uid').val() === $participantUid && newData.child('name').isString() && (!newData.child('photoURL').exists() || newData.child('photoURL').isString())"
+          }
+        }
+      }
+    },
     "sharedExpenses": {
       ".read": "auth != null",
       "$expenseId": {
         ".write": "auth != null && (data.child('creatorId').val() === auth.uid || (!data.exists() && newData.child('creatorId').val() === auth.uid))",
-        ".validate": "newData.hasChildren(['title', 'description', 'amount', 'currency', 'category', 'paymentMethod', 'creatorId', 'creatorName', 'createdAt', 'participants']) && newData.child('title').isString() && newData.child('title').val().length > 0 && newData.child('title').val().length <= 60 && newData.child('description').isString() && newData.child('amount').isNumber() && newData.child('amount').val() > 0 && (newData.child('currency').val() === 'JPY' || newData.child('currency').val() === 'TWD') && (!newData.child('paymentStatus').exists() || newData.child('paymentStatus').val() === 'paid' || newData.child('paymentStatus').val() === 'unpaid') && newData.child('creatorId').isString() && newData.child('creatorName').isString()",
+        ".validate": "newData.hasChildren(['title', 'description', 'amount', 'currency', 'category', 'paymentMethod', 'creatorId', 'creatorName', 'createdAt', 'participants']) && (!data.exists() || newData.child('creatorId').val() === data.child('creatorId').val()) && newData.child('title').isString() && newData.child('title').val().length > 0 && newData.child('title').val().length <= 60 && newData.child('description').isString() && newData.child('amount').isNumber() && newData.child('amount').val() > 0 && (newData.child('currency').val() === 'JPY' || newData.child('currency').val() === 'TWD') && (!newData.child('paymentStatus').exists() || newData.child('paymentStatus').val() === 'paid' || newData.child('paymentStatus').val() === 'unpaid') && newData.child('creatorId').isString() && newData.child('creatorName').isString()",
         "participants": {
           "$uid": {
             ".write": "auth != null && ((auth.uid === $uid && root.child('sharedExpenses').child($expenseId).child('creatorId').val() !== auth.uid) || (root.child('sharedExpenses').child($expenseId).child('creatorId').val() === auth.uid && $uid !== auth.uid))",
@@ -41,6 +84,13 @@
           ".write": "auth != null && auth.uid === $uid",
           "$expenseId": {
             ".validate": "newData.hasChildren(['title', 'description', 'amount', 'currency', 'category', 'paymentMethod', 'createdAt']) && newData.child('title').isString() && newData.child('title').val().length > 0 && newData.child('title').val().length <= 60 && newData.child('description').isString() && newData.child('amount').isNumber() && newData.child('amount').val() > 0 && (newData.child('currency').val() === 'JPY' || newData.child('currency').val() === 'TWD')"
+          }
+        },
+        "trips": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid",
+          "$tripId": {
+            ".write": "auth != null && (auth.uid === $uid || (!newData.exists() && root.child('trips').child($tripId).child('ownerId').val() === auth.uid))"
           }
         }
       }

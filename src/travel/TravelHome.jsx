@@ -1,23 +1,21 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { DndContext, KeyboardSensor, MouseSensor, TouchSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import ExpensePage from './ExpensePage.jsx';
+import TravelPlanner, { TravelIdCopyButton } from './TravelPlanner.jsx';
+import { getAirportLabel } from './airports.js';
+import { travelStore } from '../travelStore.js';
+import { formatTripDateRange, getTripsWithLodging, groupFlightsByTrip, itineraryTypeOptions, toOverviewDays } from './travelUtils.js';
 import {
   AlertTriangle,
+  ArrowLeft,
   ArrowRight,
   BedDouble,
   CalendarDays,
   Check,
   ChevronDown,
   ClipboardList,
-  Cloud,
-  CloudDrizzle,
-  CloudFog,
-  CloudLightning,
-  CloudRain,
-  CloudSnow,
-  CloudSun,
   Compass,
   ExternalLink,
   GripVertical,
@@ -29,84 +27,24 @@ import {
   Pencil,
   Plane,
   Receipt,
-  ShoppingBag,
   Plus,
   Settings,
   Sparkles,
-  Sun,
-  Train,
+  ShoppingBag,
   Trash2,
+  Train,
   Utensils,
-  Wind,
   X,
 } from 'lucide-react';
-import { flightInfo, getInitialOpenDay, itineraryDays, lodgingInfo, muSkySchedule, tripInfo } from './itinerary.js';
 import './travel.css';
 
-const weatherLocations = {
-  nagoya: { name: '名古屋', latitude: 35.1815, longitude: 136.9066 },
-  kamikochi: { name: '上高地', latitude: 36.2484, longitude: 137.6373 },
+const eventTypeIcons = {
+  transport: Train,
+  stay: BedDouble,
+  shopping: ShoppingBag,
+  sight: Compass,
+  food: Utensils,
 };
-
-const weatherConditions = {
-  0: ['晴朗', Sun],
-  1: ['大致晴朗', CloudSun],
-  2: ['局部多雲', CloudSun],
-  3: ['陰天', Cloud],
-  45: ['有霧', CloudFog],
-  48: ['霧凇', CloudFog],
-  51: ['毛毛雨', CloudDrizzle],
-  53: ['毛毛雨', CloudDrizzle],
-  55: ['較強毛毛雨', CloudDrizzle],
-  61: ['小雨', CloudRain],
-  63: ['中雨', CloudRain],
-  65: ['大雨', CloudRain],
-  71: ['小雪', CloudSnow],
-  73: ['中雪', CloudSnow],
-  75: ['大雪', CloudSnow],
-  80: ['短暫陣雨', CloudRain],
-  81: ['陣雨', CloudRain],
-  82: ['強陣雨', CloudRain],
-  95: ['雷雨', CloudLightning],
-  96: ['雷雨伴冰雹', CloudLightning],
-  99: ['強雷雨伴冰雹', CloudLightning],
-};
-
-const highlightRules = [
-  { label: '必吃美食', tone: 'eat', keywords: ['飛驒牛', '名古屋拉麵', '拉麵', '鰻魚飯', '手羽先', '壽喜燒', '早午餐'] },
-  { label: '必點菜單', tone: 'menu', keywords: ['飛驒牛', '鰻魚飯', '手羽先', '拉麵'] },
-  { label: '必買伴手禮', tone: 'souvenir', keywords: ['蝦餅', '外郎', '名古屋零食', '伴手禮'] },
-];
-
-const eventTypes = {
-  transport: { icon: Train, color: 'transport' },
-  food: { icon: Utensils, color: 'food' },
-  sight: { icon: Compass, color: 'sight' },
-  shopping: { icon: ShoppingBag, color: 'shopping' },
-  stay: { icon: BedDouble, color: 'stay' },
-};
-
-function getWeatherDetails(code) {
-  return weatherConditions[code] || ['多雲', CloudSun];
-}
-
-function analyzeHighlights(day) {
-  const itineraryText = [day.summary, day.guide, ...day.events.map((event) => `${event.title} ${event.description} ${event.tip || ''}`)].join(' ');
-  return highlightRules.flatMap((rule) => {
-    const matches = rule.keywords.filter((keyword) => itineraryText.includes(keyword));
-    if (!matches.length) return [];
-    const suggestions = matches.map((keyword) => {
-      if (rule.tone === 'menu') {
-        return keyword === '飛驒牛' ? '飛驒牛推薦部位' : keyword === '鰻魚飯' ? '鰻魚飯三吃' : keyword === '手羽先' ? '名古屋手羽先' : '店家招牌拉麵';
-      }
-      if (rule.tone === 'souvenir') {
-        return keyword === '伴手禮' || keyword === '名古屋零食' ? null : keyword;
-      }
-      return keyword;
-    }).filter(Boolean);
-    return [{ ...rule, values: [...new Set(suggestions)].slice(0, 3) }];
-  });
-}
 
 function mapsUrl(location) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
@@ -116,123 +54,155 @@ function searchUrl(query) {
   return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
 }
 
-function useJpyToTwdRate() {
-  const [rate, setRate] = useState(null);
-
-  useEffect(() => {
-    let active = true;
-    async function loadRate() {
-      try {
-        const response = await fetch('https://open.er-api.com/v6/latest/JPY');
-        if (!response.ok) throw new Error('Exchange rate request failed');
-        const result = await response.json();
-        const nextRate = Number(result.rates?.TWD);
-        if (active && nextRate) setRate(nextRate);
-      } catch {
-        if (active) setRate(null);
-      }
-    }
-    loadRate();
-    const interval = window.setInterval(loadRate, 30 * 60 * 1000);
-    return () => {
-      active = false;
-      window.clearInterval(interval);
-    };
-  }, []);
-
-  return rate;
-}
-
-function formatTravelAmount(amountTwd, currency, jpyToTwd) {
-  if (!jpyToTwd) return '匯率讀取中…';
-  const amount = currency === 'JPY' ? amountTwd / jpyToTwd : amountTwd;
-  return new Intl.NumberFormat('zh-TW', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: currency === 'JPY' ? 0 : 0,
-  }).format(amount);
-}
-
-function CurrencyToggle({ currency, onChange }) {
-  return (
-    <div className="travel-currency-toggle" aria-label="切換金額幣別">
-      <button className={currency === 'TWD' ? 'active' : ''} type="button" onClick={() => onChange('TWD')}>台幣</button>
-      <button className={currency === 'JPY' ? 'active' : ''} type="button" onClick={() => onChange('JPY')}>日圓</button>
-    </div>
-  );
-}
-
 function isRealtimeDatabasePermissionError(error) {
   return error.code === 'PERMISSION_DENIED'
     || error.code === 'permission-denied'
     || /PERMISSION_DENIED/i.test(error.message || '');
 }
 
-function WeatherPanel({ weatherKey, weather }) {
-  const location = weatherLocations[weatherKey];
-  const report = weather[weatherKey];
-  const [condition, WeatherIcon] = report?.current
-    ? getWeatherDetails(report.current.weather_code)
-    : ['讀取即時天氣', Cloud];
+function EventCard({ event, onUpdate, onDelete }) {
+  const eventType = eventTypeIcons[event.type] ? event.type : 'sight';
+  const EventIcon = eventTypeIcons[eventType];
+  const [editing, setEditing] = useState(false);
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState('');
+  const [draft, setDraft] = useState({
+    title: event.title || '',
+    description: event.description || '',
+    startTime: event.startTime || '',
+    endTime: event.endTime || '',
+    address: event.location || '',
+    type: eventType,
+  });
+
+  async function saveEvent(submitEvent) {
+    submitEvent.preventDefault();
+    setWorking(true);
+    setError('');
+    try {
+      await onUpdate(event.id, draft);
+      setEditing(false);
+    } catch (saveError) {
+      setError(saveError.message || '儲存行程失敗，請稍後再試。');
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function deleteEvent() {
+    if (!window.confirm(`確定刪除「${event.title}」嗎？`)) return;
+    setWorking(true);
+    setError('');
+    try {
+      await onDelete(event.id);
+    } catch (deleteError) {
+      setError(deleteError.message || '刪除行程失敗，請稍後再試。');
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  function cancelEdit() {
+    setDraft({
+      title: event.title || '',
+      description: event.description || '',
+      startTime: event.startTime || '',
+      endTime: event.endTime || '',
+      address: event.location || '',
+      type: eventType,
+    });
+    setError('');
+    setEditing(false);
+  }
 
   return (
-    <div className="day-weather" aria-label={`${location.name}目前天氣`}>
-      <span className="weather-place">{location.name}<span>即時觀測</span></span>
-      {report?.current ? (
-        <>
-          <WeatherIcon className="weather-icon" size={22} strokeWidth={1.7} />
-          <span className="weather-temp">{Math.round(report.current.temperature_2m)}°</span>
-          <span className="weather-condition">{condition}</span>
-        </>
-      ) : (
-        <span className={`weather-condition${report?.error ? ' weather-error' : ''}`}>
-          {report?.error ? '暫時無法取得' : <><span className="weather-dot" />查詢中</>}
-        </span>
-      )}
-    </div>
-  );
-}
-
-function HighlightTags({ day }) {
-  const highlights = useMemo(() => analyzeHighlights(day), [day]);
-  return (
-    <div className="highlight-list" aria-label="行程重點分析">
-      {highlights.map((highlight) => (
-        <div className={`highlight-tag tag-${highlight.tone}`} key={highlight.tone}>
-          <span className="highlight-label">{highlight.label}</span>
-          <span>{highlight.values.join('・')}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function EventCard({ event }) {
-  const typeInfo = eventTypes[event.type] || eventTypes.sight;
-  const EventIcon = typeInfo.icon;
-  return (
-    <article className={`schedule-event event-${typeInfo.color}`}>
+    <article className={`schedule-event event-${eventType}`}>
       <div className="event-time">{event.time}</div>
       <div className="event-marker"><span /></div>
       <div className="event-card-content">
-        <div className="event-card-heading">
-          <h3>{event.title}</h3>
-          <div className="event-type"><EventIcon size={15} />{event.category}</div>
-        </div>
-        <p>{event.description}</p>
-        {event.tip && (
-          <div className="guide-tip"><Sparkles size={14} /><span>{event.tip}</span></div>
+        {editing ? (
+          <form className="event-edit-form" onSubmit={saveEvent}>
+            <div className="planner-fields-grid">
+              <label className="planner-field"><span>行程標題</span><input value={draft.title} onChange={(inputEvent) => setDraft((current) => ({ ...current, title: inputEvent.target.value }))} maxLength={100} required /></label>
+              <label className="planner-field"><span>行程類型</span><select value={draft.type} onChange={(inputEvent) => setDraft((current) => ({ ...current, type: inputEvent.target.value }))}>{itineraryTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+              <label className="planner-field"><span>地址</span><input value={draft.address} onChange={(inputEvent) => setDraft((current) => ({ ...current, address: inputEvent.target.value }))} /></label>
+              <label className="planner-field planner-field-wide"><span>行程描述</span><textarea rows={2} value={draft.description} onChange={(inputEvent) => setDraft((current) => ({ ...current, description: inputEvent.target.value }))} /></label>
+              <label className="planner-field"><span>開始時間</span><input type="time" value={draft.startTime} onChange={(inputEvent) => setDraft((current) => ({ ...current, startTime: inputEvent.target.value }))} /></label>
+              <label className="planner-field"><span>結束時間</span><input type="time" value={draft.endTime} onChange={(inputEvent) => setDraft((current) => ({ ...current, endTime: inputEvent.target.value }))} /></label>
+            </div>
+            {error && <p className="planner-error" role="alert">{error}</p>}
+            <div className="planner-inline-actions"><button className="planner-primary" type="submit" disabled={working || !draft.title.trim()}><Check size={15} />儲存</button><button className="planner-secondary" type="button" onClick={cancelEdit} disabled={working}><X size={15} />取消</button></div>
+          </form>
+        ) : (
+          <>
+            <div className="event-card-heading">
+              <h3>{event.title}</h3>
+              <div className="event-card-tools">
+                <div className="event-type"><EventIcon size={15} />{event.category || '景點'}</div>
+                {onUpdate && onDelete && <div className="event-card-actions"><button className="event-action-button" type="button" aria-label={`編輯${event.title}`} title="編輯行程" onClick={() => { setError(''); setEditing(true); }} disabled={working}><Pencil size={15} /></button><button className="event-action-button delete" type="button" aria-label={`刪除${event.title}`} title="刪除行程" onClick={deleteEvent} disabled={working}><Trash2 size={15} /></button></div>}
+              </div>
+            </div>
+            <p>{event.description}</p>
+            {event.tip && <div className="guide-tip"><Sparkles size={14} /><span>{event.tip}</span></div>}
+            {event.location && <a className="map-link" href={mapsUrl(event.location)} target="_blank" rel="noreferrer"><MapPin size={14} />地點預覽 <ArrowRight size={14} /></a>}
+            {error && <p className="planner-error" role="alert">{error}</p>}
+          </>
         )}
-        <a className="map-link" href={mapsUrl(event.location)} target="_blank" rel="noreferrer">
-          <MapPin size={14} /> 地點預覽 <ArrowRight size={14} />
-        </a>
       </div>
     </article>
   );
 }
 
-function DayCard({ day, weather, isOpen, onToggle }) {
+function DayCard({ day, isOpen, onToggle, onAddEvent, onUpdateEvent, onDeleteEvent, onUpdateSummary }) {
+  const [addOpen, setAddOpen] = useState(false);
+  const [eventDraft, setEventDraft] = useState({ title: '', description: '', startTime: '', endTime: '', address: '', type: 'sight' });
+  const [savingEvent, setSavingEvent] = useState(false);
+  const [eventError, setEventError] = useState('');
+  const [summaryEditing, setSummaryEditing] = useState(false);
+  const [summaryDraft, setSummaryDraft] = useState(day.summary || '');
+  const [summarySaving, setSummarySaving] = useState(false);
+  const [summaryError, setSummaryError] = useState('');
   const guideSearch = searchUrl(`${day.area} 景點故事 旅遊攻略 交通 建議`);
+
+  useEffect(() => {
+    if (!summaryEditing) setSummaryDraft(day.summary || '');
+  }, [day.summary, summaryEditing]);
+
+  async function saveSummary(event) {
+    event.preventDefault();
+    setSummarySaving(true);
+    setSummaryError('');
+    try {
+      await onUpdateSummary(day.date, summaryDraft);
+      setSummaryEditing(false);
+    } catch (error) {
+      setSummaryError(error.message || '儲存每日摘要失敗，請稍後再試。');
+    } finally {
+      setSummarySaving(false);
+    }
+  }
+
+  function cancelSummaryEdit() {
+    setSummaryDraft(day.summary || '');
+    setSummaryError('');
+    setSummaryEditing(false);
+  }
+
+  async function submitEvent(event) {
+    event.preventDefault();
+    setSavingEvent(true);
+    setEventError('');
+    try {
+      await onAddEvent(day.date, eventDraft);
+      setEventDraft({ title: '', description: '', startTime: '', endTime: '', address: '', type: 'sight' });
+      setAddOpen(false);
+    } catch (error) {
+      setEventError(error.message || '新增行程失敗，請稍後再試。');
+    } finally {
+      setSavingEvent(false);
+    }
+  }
+
   return (
     <article className={`day-card${isOpen ? ' day-open' : ''}`}>
       <button id={`day-card-heading-${day.id}`} className="day-card-heading" type="button" onClick={onToggle} aria-expanded={isOpen}>
@@ -242,33 +212,49 @@ function DayCard({ day, weather, isOpen, onToggle }) {
           <span className="day-title">{day.title}</span>
           <span className="day-area"><MapPin size={12} />{day.area}</span>
         </span>
-        <WeatherPanel weatherKey={day.weatherKey} weather={weather} />
         <ChevronDown className="day-chevron" size={18} />
       </button>
       {isOpen && (
         <div id={`day-card-body-${day.id}`} className="day-card-body">
-          <p className="day-summary">{day.summary}</p>
-          <HighlightTags day={day} />
+          {summaryEditing ? <form className="day-summary-edit-form" onSubmit={saveSummary}>
+            <label className="planner-field"><span>第 {day.id} 天摘要</span><textarea autoFocus rows={3} maxLength={500} value={summaryDraft} onChange={(event) => setSummaryDraft(event.target.value)} placeholder="單獨記下這一天的重點或安排。" /></label>
+            {summaryError && <p className="planner-error" role="alert">{summaryError}</p>}
+            <div className="day-summary-actions"><button className="planner-primary" type="submit" disabled={summarySaving}>{summarySaving ? '儲存中…' : <><Check size={15} />儲存摘要</>}</button><button className="planner-secondary" type="button" onClick={cancelSummaryEdit} disabled={summarySaving}><ArrowLeft size={15} />取消</button></div>
+          </form> : <div className="day-summary-row"><p className={`day-summary${day.summary ? '' : ' is-empty'}`}>{day.summary || '尚未新增每日摘要。'}</p>{onUpdateSummary && <button className="day-summary-edit-button" type="button" aria-label={`編輯第 ${day.id} 天摘要`} title="編輯每日摘要" onClick={() => { setSummaryError(''); setSummaryDraft(day.summary || ''); setSummaryEditing(true); }}><Pencil size={15} /></button>}</div>}
           <div className="schedule-list">
-            {day.events.map((event, index) => <EventCard event={event} key={`${day.id}-${index}`} />)}
+            {day.events.map((event, index) => <EventCard event={event} key={event.id || `${day.id}-${index}`} onUpdate={onUpdateEvent ? (eventId, draft) => onUpdateEvent(eventId, draft) : undefined} onDelete={onDeleteEvent ? (eventId) => onDeleteEvent(eventId) : undefined} />)}
           </div>
-          <aside className="guide-panel">
+          {onAddEvent && (addOpen ? <form className="overview-event-form" onSubmit={submitEvent}>
+            <div className="planner-fields-grid">
+              <label className="planner-field"><span>行程標題</span><input value={eventDraft.title} onChange={(event) => setEventDraft((current) => ({ ...current, title: event.target.value }))} required maxLength={100} /></label>
+              <label className="planner-field"><span>行程類型</span><select value={eventDraft.type} onChange={(event) => setEventDraft((current) => ({ ...current, type: event.target.value }))}>{itineraryTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+              <label className="planner-field"><span>地址</span><input value={eventDraft.address} onChange={(event) => setEventDraft((current) => ({ ...current, address: event.target.value }))} /></label>
+              <label className="planner-field planner-field-wide"><span>行程描述</span><textarea rows={2} value={eventDraft.description} onChange={(event) => setEventDraft((current) => ({ ...current, description: event.target.value }))} /></label>
+              <label className="planner-field"><span>開始時間</span><input type="time" value={eventDraft.startTime} onChange={(event) => setEventDraft((current) => ({ ...current, startTime: event.target.value }))} /></label>
+              <label className="planner-field"><span>結束時間</span><input type="time" value={eventDraft.endTime} onChange={(event) => setEventDraft((current) => ({ ...current, endTime: event.target.value }))} /></label>
+            </div>
+            {eventError && <p className="planner-error" role="alert">{eventError}</p>}
+            <div className="planner-inline-actions"><button className="planner-primary" type="submit" disabled={savingEvent || !eventDraft.title.trim()}>{savingEvent ? '儲存中…' : <><Plus size={15} />加入行程</>}</button><button className="planner-secondary" type="button" onClick={() => setAddOpen(false)}>取消</button></div>
+          </form> : <button className="planner-add-event overview-add-event" type="button" onClick={() => setAddOpen(true)}><Plus size={17} />加入行程</button>)}
+          {day.guide && <aside className="guide-panel">
             <div className="guide-heading"><Sparkles size={16} /><strong>小導遊筆記</strong><span>依行程整理</span></div>
             <p>{day.guide}</p>
             <a href={guideSearch} target="_blank" rel="noreferrer">
               搜尋景點故事與攻略 <ExternalLink size={14} />
             </a>
-          </aside>
+          </aside>}
         </div>
       )}
     </article>
   );
 }
 
-function TripStatusCard({ mobile = false }) {
+function TripStatusCard({ trip }) {
   const [now, setNow] = useState(Date.now());
-  const tripStart = new Date(2026, 9, 22).getTime();
-  const tripEnd = new Date(2026, 9, 26, 23, 59, 59).getTime();
+  const startDate = new Date(`${trip.startDate}T00:00:00`);
+  const endDate = new Date(`${trip.endDate}T00:00:00`);
+  const tripStart = startDate.getTime();
+  const tripEnd = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 23, 59, 59).getTime();
   const countdown = Math.max(tripStart - now, 0);
   const days = Math.floor(countdown / 86400000);
   const hours = Math.floor((countdown % 86400000) / 3600000);
@@ -276,8 +262,8 @@ function TripStatusCard({ mobile = false }) {
   const seconds = Math.floor((countdown % 60000) / 1000);
   const isOngoing = now >= tripStart && now <= tripEnd;
   const isFinished = now > tripEnd;
-  const firstDayOffset = new Date(2026, 9, 1).getDay();
-  const calendarDays = Array.from({ length: 31 }, (_, index) => index + 1);
+  const firstDayOffset = new Date(startDate.getFullYear(), startDate.getMonth(), 1).getDay();
+  const calendarDays = Array.from({ length: new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0).getDate() }, (_, index) => index + 1);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 1000);
@@ -285,9 +271,9 @@ function TripStatusCard({ mobile = false }) {
   }, []);
 
   return (
-    <div className={`trip-status-stack${mobile ? ' trip-status-stack-mobile' : ''}`} aria-label="旅程日期與倒數">
+    <div className="trip-status-stack" aria-label="旅程日期與倒數">
       <section className="trip-status-card trip-calendar-card">
-        <div className="trip-calendar"><div className="trip-calendar-month">2026 年 10 月</div><div className="trip-calendar-weekdays">{['日', '一', '二', '三', '四', '五', '六'].map((weekday) => <span key={weekday}>{weekday}</span>)}</div><div className="trip-calendar-grid">{Array.from({ length: firstDayOffset }, (_, index) => <span className="trip-calendar-empty" key={`empty-${index}`} />)}{calendarDays.map((day) => <span className={`trip-calendar-day${day >= 22 && day <= 26 ? ' is-trip-day' : ''}${day === 22 ? ' is-trip-start' : ''}${day === 26 ? ' is-trip-end' : ''}`} key={day}>{day}</span>)}</div></div>
+        <div className="trip-calendar"><div className="trip-calendar-month">{startDate.getFullYear()} 年 {startDate.getMonth() + 1} 月</div><div className="trip-calendar-weekdays">{['日', '一', '二', '三', '四', '五', '六'].map((weekday) => <span key={weekday}>{weekday}</span>)}</div><div className="trip-calendar-grid">{Array.from({ length: firstDayOffset }, (_, index) => <span className="trip-calendar-empty" key={`empty-${index}`} />)}{calendarDays.map((day) => { const dayTime = new Date(startDate.getFullYear(), startDate.getMonth(), day, 12).getTime(); const isTripDay = dayTime >= tripStart && dayTime <= tripEnd; return <span className={`trip-calendar-day${isTripDay ? ' is-trip-day' : ''}${day === startDate.getDate() ? ' is-trip-start' : ''}${day === endDate.getDate() && startDate.getMonth() === endDate.getMonth() ? ' is-trip-end' : ''}`} key={day}>{day}</span>; })}</div></div>
       </section>
       <section className="trip-status-card trip-countdown-card">
         <div className="trip-countdown">{!isFinished && !isOngoing && <div className="trip-countdown-values"><strong>{String(days).padStart(2, '0')}<small>日</small></strong><i>:</i><strong>{String(hours).padStart(2, '0')}<small>時</small></strong><i>:</i><strong>{String(minutes).padStart(2, '0')}<small>分</small></strong><i>:</i><strong>{String(seconds).padStart(2, '0')}<small>秒</small></strong></div>}</div>
@@ -296,8 +282,9 @@ function TripStatusCard({ mobile = false }) {
   );
 }
 
-function TripOverview({ weather }) {
-  const [openDay, setOpenDay] = useState(getInitialOpenDay);
+function TripOverview({ trip, onAddEvent, onUpdateEvent, onDeleteEvent, onUpdateSummary, onBack }) {
+  const days = toOverviewDays(trip);
+  const [openDay, setOpenDay] = useState(1);
   const [pendingScrollDay, setPendingScrollDay] = useState(null);
 
   useEffect(() => {
@@ -318,30 +305,30 @@ function TripOverview({ weather }) {
 
   return (
     <>
+      <button className="planner-back" type="button" onClick={onBack}><ArrowLeft size={16} />返回旅程總覽</button>
       <section className="trip-hero">
-        <div className="trip-hero-image" />
         <div className="trip-hero-copy">
-          <span className="trip-eyebrow"><span /> AUTUMN JOURNAL · 2026</span>
-          <h1>{tripInfo.title}</h1>
-          <p>{tripInfo.summary}</p>
-          <div className="trip-meta"><span><CalendarDays size={15} />{tripInfo.dateRange}</span><span><MapPin size={15} />{tripInfo.destination}</span></div>
+          <span className="trip-eyebrow"><span /> TRAVEL JOURNAL</span>
+          <div className="trip-hero-heading">
+            <h1>{trip.title}</h1>
+            <div className="trip-hero-id"><span>{trip.id}</span><TravelIdCopyButton id={trip.id} /></div>
+          </div>
+          <p>{trip.description}</p>
+          <div className="trip-meta"><span><CalendarDays size={15} />{formatTripDateRange(trip.startDate, trip.endDate)}</span><span><MapPin size={15} />{trip.country}</span></div>
         </div>
-        <div className="trip-hero-stamp"><span>JAPAN</span><strong>愛知</strong><small>秋旅 2026</small></div>
       </section>
 
       <section className="itinerary-section">
         <div className="section-heading">
           <div><p className="section-eyebrow">YOUR DAILY ROUTE</p><h2>每日行程</h2></div>
-          <span className="section-count">5 DAYS <i /> 4 NIGHTS</span>
+          <span className="section-count">{days.length} DAYS</span>
         </div>
-        <div className="weather-disclaimer"><Info size={14} />顯示各地目前觀測天氣，每 30 分鐘更新；不是 10 月行程日預報。</div>
         <div className="day-list">
-          {itineraryDays.map((day) => (
-            <DayCard key={day.id} day={day} weather={weather} isOpen={openDay === day.id} onToggle={() => toggleDay(day.id)} />
+          {days.map((day) => (
+            <DayCard key={day.id} day={day} isOpen={openDay === day.id} onToggle={() => toggleDay(day.id)} onAddEvent={onAddEvent} onUpdateSummary={onUpdateSummary} onUpdateEvent={(eventId, draft) => onUpdateEvent(day.date, eventId, draft)} onDeleteEvent={(eventId) => onDeleteEvent(day.date, eventId)} />
           ))}
         </div>
       </section>
-      <TripStatusCard mobile />
     </>
   );
 }
@@ -509,64 +496,67 @@ function PackingListPage({ items, loadState, error, actionError, working, onAdd,
   );
 }
 
-function TransportationPage() {
-  const [currency, setCurrency] = useState('TWD');
-  const jpyToTwd = useJpyToTwdRate();
+function TransportationPage({ trips }) {
+  const flightGroups = groupFlightsByTrip(trips);
   return (
     <section className="detail-page">
       <div className="page-heading"><p className="section-eyebrow">GETTING AROUND</p><h1>交通資訊</h1></div>
-      <section className="transport-group">
-        <header className="transport-section-heading">
-          <span className="transport-section-icon"><Plane size={18} /></span>
-          <div><p>FLIGHT DETAILS</p><h2>航班資訊</h2></div>
-          <span className="transport-section-line" />
-        </header>
-        <div className="flight-list">
-          {flightInfo.map((flight, index) => (
-            <article className="flight-card" key={flight.direction}>
-              <div className="flight-card-top"><span className="flight-direction">{flight.direction}</span><span>{flight.date}</span></div>
-              <div className="flight-airline"><span className="flight-icon"><Plane size={18} /></span><strong>{flight.airline}</strong></div>
-              <div className="flight-route"><div><span>{flight.departureTimezone}</span><strong>{flight.departure}</strong><small>{index === 0 ? '台灣' : '名古屋'}</small></div><div className="flight-route-line"><span>{flight.route}</span><i><Plane size={15} /></i></div><div><span>{flight.arrivalTimezone}</span><strong>{flight.arrival}</strong><small>{index === 0 ? '名古屋' : '台灣'}</small></div></div>
-              <div className="flight-fare"><span>每人票價</span><strong>{formatTravelAmount(Number(flight.fare.replace(',', '')), currency, jpyToTwd)}<small> / 人</small></strong><CurrencyToggle currency={currency} onChange={setCurrency} /></div>
-            </article>
-          ))}
-        </div>
-      </section>
-      <section className="transport-timetable">
-        <header className="transport-section-heading">
-          <span className="transport-section-icon"><Train size={18} /></span>
-          <div><p>RAIL TIMETABLE</p><h2>μ-SKY 資訊</h2></div>
-          <span className="transport-section-side">中部國際機場 → 名古屋</span>
-        </header>
-        <p className="timetable-intro">μ-SKY 列車時刻表</p>
-        <div className="timetable-scroll">
-          <table className="timetable-table">
-            <thead><tr><th>出發時間</th><th>到達時間</th><th>行車時間</th><th>車種</th></tr></thead>
-            <tbody>{muSkySchedule.map((train) => <tr key={train.departure}><td>{train.departure}</td><td>{train.arrival}</td><td>{train.duration}</td><td>{train.train}</td></tr>)}</tbody>
-          </table>
-        </div>
-        <p className="timetable-note">搭乘 μ-SKY 需另外購買 μ-Ticket 指定席特別車券，約 450 円；班次可能調整，出發前請確認最新時刻。</p>
-      </section>
+      {flightGroups.length ? flightGroups.map(({ trip, flights }) => (
+        <section className="transport-group" key={trip.id}>
+          <header className="transport-section-heading">
+            <span className="transport-section-icon"><Plane size={18} /></span>
+            <div><p>FLIGHT DETAILS · {trip.country}</p><h2>{trip.title}</h2></div>
+            <span className="transport-section-side">{trip.id}</span>
+          </header>
+          <div className="flight-list">
+            {flights.map((flight, index) => (
+              <article className="flight-card" key={`${trip.id}-${flight.formId || flight.direction || index}`}>
+                <div className="flight-card-top"><span className="flight-direction">{flight.direction || `航班 ${index + 1}`}</span><span>{flight.date}</span></div>
+                <div className="flight-airline"><span className="flight-icon"><Plane size={18} /></span><strong>{flight.airline || '未填寫航空公司'}</strong></div>
+                <div className="flight-route">
+                  <div><span>出發機場</span><strong className="flight-airport-name">{flight.departureAirport ? getAirportLabel(flight.departureAirport) : flight.route?.split(/→|->/)[0]?.trim() || '未設定'}</strong>{(flight.departureTime || (!flight.departureAirport && flight.departure)) && <small className="flight-time">{flight.departureTime || flight.departure}</small>}</div>
+                  <div className="flight-route-line"><i><Plane size={15} /></i></div>
+                  <div><span>目的地機場</span><strong className="flight-airport-name">{flight.arrivalAirport ? getAirportLabel(flight.arrivalAirport) : flight.route?.split(/→|->/)[1]?.trim() || '未設定'}</strong>{(flight.arrivalTime || (!flight.arrivalAirport && flight.arrival)) && <small className="flight-time">{flight.arrivalTime || flight.arrival}</small>}</div>
+                </div>
+                {flight.fare && <div className="flight-fare"><span>每人票價</span><strong>NT$ {new Intl.NumberFormat('zh-TW').format(Number(String(flight.fare).replace(/,/g, '')))}<small> / 人</small></strong></div>}
+              </article>
+            ))}
+          </div>
+        </section>
+      )) : <p className="trip-info-empty">{trips.length ? '你的旅程尚未填寫機票資訊。' : '目前沒有可顯示的旅行。'}</p>}
     </section>
   );
 }
 
-function LodgingPage() {
-  const [currency, setCurrency] = useState('TWD');
-  const jpyToTwd = useJpyToTwdRate();
+function LodgingPage({ trips }) {
+  const lodgingTrips = getTripsWithLodging(trips);
   return (
     <section className="detail-page">
-      <div className="page-heading"><p className="section-eyebrow">YOUR HOME IN NAGOYA</p><h1>住宿資訊</h1><p>四個晚上的名古屋旅行基地。</p></div>
-      <article className="lodging-card">
-        <div className="lodging-visual" aria-hidden="true" />
-        <div className="lodging-body">
-          <div className="lodging-kicker"><BedDouble size={15} /> ACCOMMODATION</div>
-          <h2>{lodgingInfo.name}</h2>
-          <a className="lodging-address" href={mapsUrl(lodgingInfo.address)} target="_blank" rel="noreferrer"><MapPin size={16} /><span>{lodgingInfo.address}</span><ExternalLink size={14} /></a>
-          <p className="lodging-note">{lodgingInfo.note}</p>
-          <div className="lodging-facts"><div><span>住宿晚數</span><strong>{lodgingInfo.nights}</strong></div><div className="lodging-price-fact"><span>住宿金額</span><strong>{formatTravelAmount(Number(lodgingInfo.price.replace(/[^0-9]/g, '')), currency, jpyToTwd)}</strong><CurrencyToggle currency={currency} onChange={setCurrency} /></div></div>
-        </div>
-      </article>
+      <div className="page-heading"><p className="section-eyebrow">ACCOMMODATION</p><h1>住宿資訊</h1></div>
+      {lodgingTrips.length ? lodgingTrips.map(({ trip, lodging, index }) => {
+        const nights = lodging.checkIn && lodging.checkOut
+          ? `${Math.max(Math.round((new Date(`${lodging.checkOut}T00:00:00`) - new Date(`${lodging.checkIn}T00:00:00`)) / 86400000), 0)} 晚`
+          : '尚未設定';
+        return (
+          <section className="transport-group lodging-trip-group" key={`${trip.id}-${lodging.formId || index}`}>
+            <header className="transport-section-heading">
+              <span className="transport-section-icon"><BedDouble size={18} /></span>
+              <div><p>ACCOMMODATION · {trip.country}</p><h2>{trip.title} · 住宿 {index + 1}</h2></div>
+              <span className="transport-section-side">{trip.id}</span>
+            </header>
+            <article className="lodging-card">
+              <div className="lodging-visual" aria-hidden="true" />
+              <div className="lodging-body">
+                <div className="lodging-kicker"><BedDouble size={15} /> ACCOMMODATION</div>
+                <h2>{lodging.name || '住宿資訊'}</h2>
+                {lodging.address && <a className="lodging-address" href={mapsUrl(lodging.address)} target="_blank" rel="noreferrer"><MapPin size={16} /><span>{lodging.address}</span><ExternalLink size={14} /></a>}
+                {(lodging.note || lodging.checkIn || lodging.checkOut) && <p className="lodging-note">{lodging.note || `${lodging.checkIn || ''}${lodging.checkOut ? ` 至 ${lodging.checkOut}` : ''}`}</p>}
+                <div className="lodging-facts"><div><span>入住日期</span><strong>{lodging.checkIn || '尚未設定'}</strong></div><div><span>退房日期</span><strong>{lodging.checkOut || '尚未設定'}</strong></div><div><span>住宿晚數</span><strong>{nights}</strong></div>{lodging.price && <div className="lodging-price-fact"><span>住宿金額</span><strong>NT$ {new Intl.NumberFormat('zh-TW').format(Number(String(lodging.price).replace(/[^0-9]/g, '')))}</strong></div>}</div>
+              </div>
+            </article>
+          </section>
+        );
+      }) : <p className="trip-info-empty">{trips.length ? '你的旅程尚未填寫住宿資訊。' : '目前沒有可顯示的旅行。'}</p>}
     </section>
   );
 }
@@ -586,8 +576,11 @@ function UserBadge({ user }) {
 
 export default function TravelHome({ user, onSignOut, packingStore, expenseStore }) {
   const [section, setSection] = useState('itinerary');
-  const [weather, setWeather] = useState({});
-  const [weatherUpdated, setWeatherUpdated] = useState(null);
+  const [travelItems, setTravelItems] = useState([]);
+  const [travelLoadState, setTravelLoadState] = useState('loading');
+  const [travelError, setTravelError] = useState('');
+  const [travelWorking, setTravelWorking] = useState(false);
+  const [activeTravelId, setActiveTravelId] = useState(null);
   const [packingItems, setPackingItems] = useState([]);
   const [packingLoadState, setPackingLoadState] = useState('loading');
   const [packingError, setPackingError] = useState('');
@@ -623,36 +616,30 @@ export default function TravelHome({ user, onSignOut, packingStore, expenseStore
 
   useEffect(() => {
     let active = true;
-    const controller = new AbortController();
-    const loadWeather = async () => {
-      const entries = await Promise.all(Object.entries(weatherLocations).map(async ([key, place]) => {
-        const query = new URLSearchParams({
-          latitude: place.latitude,
-          longitude: place.longitude,
-          current: 'temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m',
-          timezone: 'Asia/Tokyo',
-        });
-        try {
-          const response = await fetch(`https://api.open-meteo.com/v1/forecast?${query}`, { signal: controller.signal });
-          if (!response.ok) throw new Error('Weather request failed');
-          const result = await response.json();
-          return [key, result];
-        } catch {
-          return [key, { error: true }];
-        }
-      }));
-      if (!active) return;
-      setWeather(Object.fromEntries(entries));
-      setWeatherUpdated(new Date());
-    };
-    loadWeather();
-    const interval = window.setInterval(loadWeather, 30 * 60 * 1000);
+    let unsubscribe = () => {};
+    setTravelLoadState('loading');
+    setTravelError('');
+    try {
+      unsubscribe = travelStore.subscribeForUser(user.uid, (trips) => {
+        if (!active) return;
+        setTravelItems(trips);
+        setTravelLoadState('ready');
+      }, (error) => {
+        if (!active) return;
+        setTravelLoadState('error');
+        setTravelError(isRealtimeDatabasePermissionError(error)
+          ? 'Realtime Database 規則尚未允許讀取旅行，請發布 database.rules.json。'
+          : '無法載入旅行，請檢查網路連線或 Realtime Database 設定。');
+      });
+    } catch (error) {
+      setTravelLoadState('error');
+      setTravelError(error.message || 'Firebase Realtime Database 尚未設定。');
+    }
     return () => {
       active = false;
-      controller.abort();
-      window.clearInterval(interval);
+      unsubscribe();
     };
-  }, []);
+  }, [user.uid]);
 
   useEffect(() => {
     let active = true;
@@ -721,6 +708,59 @@ export default function TravelHome({ user, onSignOut, packingStore, expenseStore
     return runPackingAction(() => packingStore.reorder(user.uid, itemIds));
   }
 
+  async function runTravelAction(action) {
+    setTravelError('');
+    setTravelWorking(true);
+    try {
+      return await action();
+    } catch (error) {
+      setTravelError(isRealtimeDatabasePermissionError(error)
+        ? 'Realtime Database 規則尚未允許此帳號修改旅行，請發布 database.rules.json。'
+        : error.message || '旅行資料儲存失敗，請檢查網路後再試。');
+      throw error;
+    } finally {
+      setTravelWorking(false);
+    }
+  }
+
+  function createTrip(input) {
+    return runTravelAction(() => travelStore.createTrip(user.uid, {
+      name: user.displayName || user.email?.split('@')[0] || '旅人',
+      photoURL: user.photoURL || '',
+    }, input));
+  }
+
+  function joinTrip(tripId) {
+    return runTravelAction(() => travelStore.joinTrip(user.uid, {
+      name: user.displayName || user.email?.split('@')[0] || '旅人',
+      photoURL: user.photoURL || '',
+    }, tripId));
+  }
+
+  function deleteTrip(tripId) {
+    return runTravelAction(() => travelStore.deleteTrip(user.uid, tripId));
+  }
+
+  function previewTrip(tripId) {
+    return travelStore.getTripPreview(tripId);
+  }
+
+  function addTripEvent(tripId, date, event) {
+    return runTravelAction(() => travelStore.addEvent(tripId, date, event, user.uid));
+  }
+
+  function updateTripEvent(tripId, date, eventId, event) {
+    return runTravelAction(() => travelStore.updateEvent(tripId, date, eventId, event));
+  }
+
+  function deleteTripEvent(tripId, date, eventId) {
+    return runTravelAction(() => travelStore.removeEvent(tripId, date, eventId));
+  }
+
+  function updateTripDaySummary(tripId, date, summary) {
+    return runTravelAction(() => travelStore.updateDaySummary(tripId, date, summary));
+  }
+
   async function handleSignOut() {
     setSigningOut(true);
     try {
@@ -737,14 +777,15 @@ export default function TravelHome({ user, onSignOut, packingStore, expenseStore
     { id: 'expenses', label: '記帳幫手', icon: Receipt },
     { id: 'packing', label: '攜帶清單', icon: ClipboardList },
   ];
+  const activeTrip = travelItems.find((trip) => trip.id === activeTravelId) || null;
 
   return (
     <div className="trip-app">
       <aside className="trip-sidebar">
         <a className="trip-brand" href="#trip" onClick={(event) => { event.preventDefault(); setSection('itinerary'); }}>
-          <span className="trip-brand-mark" aria-hidden="true"><Compass size={17} strokeWidth={1.7} /></span><span className="trip-brand-name">NAGOYA<small>TRAVEL NOTES</small></span>
+          <span className="trip-brand-mark" aria-hidden="true"><Compass size={17} strokeWidth={1.7} /></span><span className="trip-brand-name">TRAVEL<small>JOURNAL</small></span>
         </a>
-        <div className="sidebar-trip-label"><span>YOUR TRIP</span><strong>NAGOYA · AUTUMN</strong></div>
+        <div className="sidebar-trip-label"><span>YOUR TRIP</span><strong>{activeTrip?.title || '開始規劃旅程'}</strong></div>
         <nav className="trip-nav" aria-label="行程導覽">
           {navItems.map(({ id, label, icon: Icon }) => (
             <button className={`trip-nav-item${section === id ? ' active' : ''}`} key={id} type="button" onClick={() => setSection(id)}>
@@ -753,13 +794,13 @@ export default function TravelHome({ user, onSignOut, packingStore, expenseStore
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <TripStatusCard />
+          {activeTrip && <TripStatusCard trip={activeTrip} />}
         </div>
       </aside>
 
       <div className="trip-workspace">
         <header className="trip-topbar">
-          <div className="mobile-brand"><span className="trip-brand-mark" aria-hidden="true"><Compass size={16} strokeWidth={1.7} /></span><strong>NAGOYA<small>TRAVEL NOTES</small></strong></div>
+          <div className="mobile-brand"><span className="trip-brand-mark" aria-hidden="true"><Compass size={16} strokeWidth={1.7} /></span><strong>TRAVEL<small>JOURNAL</small></strong></div>
           <div className="breadcrumb"><span>我的旅程</span><span>/</span><strong>{navItems.find((item) => item.id === section)?.label}</strong></div>
           <div className="topbar-user">
             <span>你好，{userName}</span>
@@ -789,12 +830,13 @@ export default function TravelHome({ user, onSignOut, packingStore, expenseStore
         </header>
 
         <main className="trip-content">
-          {section === 'itinerary' && <TripOverview weather={weather} />}
-          {section === 'transport' && <TransportationPage />}
-          {section === 'lodging' && <LodgingPage />}
+          {section === 'itinerary' && !activeTravelId && <TravelPlanner key={section} uid={user.uid} trips={travelItems} loadState={travelLoadState} error={travelError} working={travelWorking} onCreate={createTrip} onJoin={joinTrip} onPreviewJoin={previewTrip} onDeleteTrip={deleteTrip} onOpenTrip={(tripId) => { setActiveTravelId(tripId); setSection('itinerary'); }} />}
+          {section === 'itinerary' && activeTravelId && !activeTrip && <div className="planner-empty-state">正在載入旅程…</div>}
+          {section === 'itinerary' && activeTrip && <TripOverview key={activeTrip.id} trip={activeTrip} onAddEvent={(date, event) => addTripEvent(activeTrip.id, date, event)} onUpdateEvent={(date, eventId, event) => updateTripEvent(activeTrip.id, date, eventId, event)} onDeleteEvent={(date, eventId) => deleteTripEvent(activeTrip.id, date, eventId)} onUpdateSummary={(date, summary) => updateTripDaySummary(activeTrip.id, date, summary)} onBack={() => setActiveTravelId(null)} />}
+          {section === 'transport' && <TransportationPage trips={travelItems} />}
+          {section === 'lodging' && <LodgingPage trips={travelItems} />}
           {section === 'expenses' && <ExpensePage user={user} expenseStore={expenseStore} />}
           {section === 'packing' && <PackingListPage items={packingItems} loadState={packingLoadState} error={packingError} actionError={packingActionError} working={packingWorking} onAdd={addPackingItem} onToggle={togglePackingItem} onUpdate={updatePackingItem} onRemove={removePackingItem} onReorder={reorderPackingItems} clearActionError={() => setPackingActionError('')} />}
-          {section === 'itinerary' && weatherUpdated && <p className="weather-updated"><Wind size={13} />天氣資料更新於 {weatherUpdated.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}（日本時間）</p>}
         </main>
       </div>
 

@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "postbuild": "node scripts/copy-404.mjs",
+    "test": "node --test src/travel/travelUtils.test.js",
     "preview": "vite preview"
   },
   "dependencies": {

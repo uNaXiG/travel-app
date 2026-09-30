@@ -300,14 +300,6 @@
   background: #354b3b;
 }
 
-.trip-hero-image {
-  position: absolute;
-  inset: 0;
-  background-image: linear-gradient(90deg, rgba(24, 39, 30, .83), rgba(27, 43, 34, .35) 70%, rgba(24, 39, 30, .1)), url('../assets/mainimg.jpg');
-  background-position: center 48%;
-  background-size: cover;
-}
-
 .trip-hero-copy {
   position: relative;
   z-index: 1;
@@ -338,6 +330,16 @@
   line-height: 1.2;
 }
 
+.trip-hero-id {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -1px 0 9px;
+  color: #c5d0d1;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
 .trip-hero-copy>p {
   max-width: 510px;
   margin: 0;
@@ -363,37 +365,6 @@
 
 .trip-meta svg {
   color: #e4c894;
-}
-
-.trip-hero-stamp {
-  position: absolute;
-  top: 27px;
-  right: 29px;
-  display: grid;
-  width: 77px;
-  height: 77px;
-  place-content: center;
-  gap: 1px;
-  border: 1px solid rgba(239, 230, 205, .5);
-  border-radius: 50%;
-  color: #f2e9d5;
-  text-align: center;
-  transform: rotate(8deg);
-}
-
-.trip-hero-stamp span {
-  font-size: 7px;
-  letter-spacing: 1.3px;
-}
-
-.trip-hero-stamp strong {
-  font-family: 'Noto Sans TC', sans-serif;
-  font-size: 21px;
-  font-weight: 500;
-}
-
-.trip-hero-stamp small {
-  font-size: 7px;
 }
 
 .itinerary-section {
@@ -1446,26 +1417,6 @@
     border-radius: 13px;
   }
 
-  .trip-hero-image {
-    background-position: 58% center;
-  }
-
-  .trip-hero-stamp {
-    top: 17px;
-    right: 15px;
-    width: 57px;
-    height: 57px;
-  }
-
-  .trip-hero-stamp strong {
-    font-size: 16px;
-  }
-
-  .trip-hero-stamp span,
-  .trip-hero-stamp small {
-    font-size: 6px;
-  }
-
   .trip-hero h1 {
     max-width: 245px;
     margin-top: 13px;
@@ -1978,10 +1929,6 @@
   background-color: #171d23;
 }
 
-.trip-hero-image {
-  background-image: linear-gradient(90deg, rgba(8, 12, 17, .88), rgba(9, 15, 21, .56) 70%, rgba(11, 16, 22, .18)), url('../assets/mainimg.jpg');
-}
-
 .trip-hero-copy>p {
   color: rgba(247, 248, 246, .88);
   font-size: 13px;
@@ -2090,6 +2037,60 @@
   font-size: 13px;
 }
 
+.day-summary-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.day-summary-row .day-summary {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.day-summary-row .day-summary.is-empty {
+  color: #869397;
+}
+
+.day-summary-edit-button {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 0;
+  color: #bdc9cb;
+  background: #242d33;
+  border: 1px solid #3b474e;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.day-summary-edit-button:hover {
+  color: #e3f2ef;
+  background: #30403f;
+  border-color: #638c81;
+}
+
+.day-summary-edit-form {
+  --planner-ink: #e7ecec;
+  --planner-green: #69b7a5;
+  --planner-muted: #a6b1b4;
+  display: grid;
+  gap: 10px;
+  margin: 0 0 14px;
+}
+
+.day-summary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .highlight-tag {
   font-size: 10px;
 }
@@ -2117,6 +2118,68 @@
 .event-card-content {
   border-color: #303a41;
   background: #171e24;
+}
+
+.event-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.event-card-heading > h3 {
+  flex: 1 1 auto;
+}
+
+.event-card-tools,
+.event-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.event-card-tools {
+  flex: 0 0 auto;
+}
+
+.event-card-actions {
+  gap: 4px;
+}
+
+.event-action-button {
+  display: grid;
+  width: 29px;
+  height: 29px;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 0;
+  color: #bdc9cb;
+  background: #242d33;
+  border: 1px solid #3b474e;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.event-action-button:hover:not(:disabled) {
+  color: #e3f2ef;
+  background: #30403f;
+  border-color: #638c81;
+}
+
+.event-action-button.delete:hover:not(:disabled) {
+  color: #ffc0b3;
+  background: #3a2929;
+  border-color: #875b55;
+}
+
+.event-action-button:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.event-edit-form {
+  display: grid;
+  gap: 12px;
 }
 
 .event-card-content h3 {
@@ -2269,6 +2332,19 @@
 .flight-route strong {
   color: #f0f0e9;
   font-size: 26px;
+}
+
+.flight-route strong.flight-airport-name {
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.flight-route .flight-time {
+  display: block;
+  margin-top: 3px;
+  color: #c3ced0;
+  font-size: 11px;
 }
 
 .flight-route-line {
