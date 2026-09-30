@@ -23,11 +23,20 @@
         "endDate": {
           ".write": "auth != null && data.parent().child('participants').child(auth.uid).exists()"
         },
+        "coverImage": {
+          ".write": "auth != null && data.parent().child('participants').child(auth.uid).exists()",
+          ".validate": "newData.isString() && (newData.val() === '' || (newData.val().length <= 1398127 && newData.val().matches(/^data:image\\/(jpeg|png);base64,[A-Za-z0-9+/]*={0,2}$/)))"
+        },
         "flights": {
           ".write": "auth != null && data.parent().child('participants').child(auth.uid).exists()"
         },
         "lodging": {
-          ".write": "auth != null && data.parent().child('participants').child(auth.uid).exists()"
+          ".write": "auth != null && data.parent().child('participants').child(auth.uid).exists()",
+          "$lodgingId": {
+            "coverImage": {
+              ".validate": "newData.isString() && (newData.val() === '' || (newData.val().length <= 1398127 && newData.val().matches(/^data:image\\/(jpeg|png);base64,[A-Za-z0-9+/]*={0,2}$/)))"
+            }
+          }
         },
         "itinerary": {
           ".write": "auth != null && data.parent().child('participants').child(auth.uid).exists()"

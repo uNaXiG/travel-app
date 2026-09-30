@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, BedDouble, CalendarDays, Check, CirclePlus, Copy, MapPin, Pencil, Plane, Plus, Trash2, Users, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, ArrowRight, BedDouble, CalendarDays, Check, CirclePlus, Copy, ImagePlus, MapPin, Pencil, Plane, Plus, Trash2, Users, X } from 'lucide-react';
 import { airports, getAirportLabel } from './airports.js';
+import { readImageFileAsDataUrl } from './imageUtils.js';
 import { buildTripDays, formatTripDateRange, isTripOwner, itineraryTypeOptions } from './travelUtils.js';
 import './travelPlanner.css';
 
@@ -10,19 +11,19 @@ function formItemId(kind) {
 
 function emptyFlight() {
   return {
-  formId: formItemId('flight'),
-  airline: '',
-  departureAirport: '',
-  arrivalAirport: '',
-  departureTime: '',
-  arrivalTime: '',
-  date: '',
-  fare: '',
+    formId: formItemId('flight'),
+    airline: '',
+    departureAirport: '',
+    arrivalAirport: '',
+    departureTime: '',
+    arrivalTime: '',
+    date: '',
+    fare: '',
   };
 }
 
 function emptyLodging() {
-  return { formId: formItemId('lodging'), name: '', address: '', checkIn: '', checkOut: '', price: '', note: '' };
+  return { formId: formItemId('lodging'), name: '', address: '', checkIn: '', checkOut: '', price: '', note: '', coverImage: '' };
 }
 
 function emptyTrip() {
@@ -32,6 +33,7 @@ function emptyTrip() {
     country: '',
     startDate: '',
     endDate: '',
+    coverImage: '',
     flights: [],
     lodging: [],
   };
@@ -45,6 +47,36 @@ const airportGroups = [
 
 function Field({ label, className = '', ...inputProps }) {
   return <label className={`planner-field${className ? ` ${className}` : ''}`}><span>{label}</span><input {...inputProps} /></label>;
+}
+
+async function loadSelectedImage(event, onImage, setError) {
+  const input = event.currentTarget;
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file) return;
+  setError('');
+  try {
+    onImage(await readImageFileAsDataUrl(file));
+  } catch (error) {
+    setError(error.message);
+  }
+}
+
+function ImageUploadField({ label, image, error, onChange, onRemove }) {
+  return (
+    <div className="planner-image-field planner-field-wide">
+      <div className="planner-image-heading"><span>{label}</span><span className="planner-image-format">JPG / PNG <i /> 1 MiB 以內</span></div>
+      <label className={`planner-image-uploader${image ? ' has-image' : ''}`}>
+        {image ? <><img className="planner-image-preview" src={image} alt={`${label}預覽`} /><span className="planner-image-overlay"><span><ImagePlus size={16} />更換封面</span></span></> : <span className="planner-image-empty"><span className="planner-image-icon"><ImagePlus size={20} /></span><strong>選擇封面照片</strong><small>點擊此處瀏覽圖檔</small></span>}
+        <input type="file" aria-label={`選擇${label}`} accept="image/jpeg,image/png,.jpg,.jpeg,.png" onChange={onChange} />
+      </label>
+      <div className="planner-image-footer">
+        <span className={image ? 'planner-image-ready' : ''}>{image ? '封面已準備好' : '尚未選擇圖片'}</span>
+        {image && <button className="planner-image-remove" type="button" onClick={onRemove}><X size={14} />移除封面</button>}
+      </div>
+      {error && <span className="planner-image-error" role="alert">{error}</span>}
+    </div>
+  );
 }
 
 function AirportField({ label, value, onChange, placeholder }) {
@@ -85,18 +117,70 @@ export function TravelIdCopyButton({ id }) {
   );
 }
 
+function ParticipantAvatar({ participant }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const name = participant.name || '旅人';
+
+  useEffect(() => setImageFailed(false), [participant.photoURL]);
+
+  return participant.photoURL && !imageFailed
+    ? <img className="participant-avatar" src={participant.photoURL} alt="" onError={() => setImageFailed(true)} />
+    : <span className="participant-avatar participant-avatar-initial" aria-hidden="true">{name.slice(0, 1).toUpperCase()}</span>;
+}
+
+export function ParticipantAvatarStack({ participants = [], limit = 3, className = '' }) {
+  const [open, setOpen] = useState(false);
+  const stackRef = useRef(null);
+  const overflow = Math.max(participants.length - limit, 0);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    function dismiss(event) {
+      if (!stackRef.current?.contains(event.target)) setOpen(false);
+      if (event.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('pointerdown', dismiss);
+    document.addEventListener('keydown', dismiss);
+    return () => {
+      document.removeEventListener('pointerdown', dismiss);
+      document.removeEventListener('keydown', dismiss);
+    };
+  }, [open]);
+
+  if (!participants.length) return null;
+
+  return (
+    <div
+      className={`participant-stack${className ? ` ${className}` : ''}${open ? ' is-open' : ''}`}
+      ref={stackRef}
+      onPointerLeave={(event) => { if (event.pointerType === 'mouse') setOpen(false); }}
+      onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}
+    >
+      <button className="participant-stack-trigger" type="button" aria-label={`查看 ${participants.length} 位旅伴`} aria-expanded={open} onClick={() => setOpen((current) => !current)}>
+        <span className="participant-avatar-row">
+          {participants.slice(0, limit).map((participant, index) => <ParticipantAvatar key={participant.uid || `${participant.name}-${index}`} participant={participant} />)}
+          {overflow > 0 && <span className="participant-avatar participant-avatar-overflow">+{overflow}</span>}
+        </span>
+      </button>
+      <div className="participant-names" aria-label="旅伴名單">
+        {participants.map((participant, index) => <span key={participant.uid || `${participant.name}-${index}`}>{participant.name || '旅人'}</span>)}
+      </div>
+    </div>
+  );
+}
+
 function TravelCard({ trip, onOpen, onDelete, canDelete }) {
   const participants = Object.values(trip.participants || {});
   return (
-    <article className="travel-card">
+    <article className={`travel-card${trip.coverImage ? ' has-cover' : ''}`}>
+      {trip.coverImage && <img className="travel-card-cover" src={trip.coverImage} alt="" />}
       <button className="travel-card-select" type="button" aria-label={`開啟旅程：${trip.title}`} onClick={() => onOpen(trip.id)} />
       <div className="travel-card-content">
-        <span className="travel-card-top"><span className="travel-card-country">{trip.country || '未設定國家'}</span><span className="travel-card-tools"><span className="travel-card-count"><Users size={14} />{participants.length}</span>{canDelete && <button className="travel-card-delete" type="button" aria-label={`刪除旅程：${trip.title}`} title="刪除整趟旅行" onClick={() => onDelete(trip)}><Trash2 size={15} /></button>}</span></span>
+        <div className="travel-card-top"><span className="travel-card-country">{trip.country || '未設定國家'}</span><div className="travel-card-tools"><ParticipantAvatarStack participants={participants} limit={3} className="participant-stack--card" />{canDelete && <button className="travel-card-delete" type="button" aria-label={`刪除旅程：${trip.title}`} title="刪除整趟旅行" onClick={() => onDelete(trip)}><Trash2 size={15} /></button>}</div></div>
         <span className="travel-card-title">{trip.title}</span>
         <span className="travel-card-id">{trip.id}<TravelIdCopyButton id={trip.id} /></span>
         <span className="travel-card-description">{trip.description || '還沒有旅程描述。'}</span>
         <span className="travel-card-date"><CalendarDays size={15} />{formatTripDateRange(trip.startDate, trip.endDate)}</span>
-        <span className="travel-card-people">{participants.slice(0, 3).map((person) => person.name || '旅人').join('、')}{participants.length > 3 ? ` 等 ${participants.length} 人` : ''}</span>
         <span className="travel-card-open">開啟旅程 <ArrowRight size={15} /></span>
       </div>
     </article>
@@ -108,6 +192,7 @@ export default function TravelPlanner({ uid, trips, loadState, error, working, o
   const [step, setStep] = useState(1);
   const [trip, setTrip] = useState(emptyTrip);
   const [dailySummaries, setDailySummaries] = useState({});
+  const [dailyLocations, setDailyLocations] = useState({});
   const [editingFlightId, setEditingFlightId] = useState(null);
   const [flightDraft, setFlightDraft] = useState(null);
   const [newFlightDraft, setNewFlightDraft] = useState(false);
@@ -120,6 +205,8 @@ export default function TravelPlanner({ uid, trips, loadState, error, working, o
   const [eventOpen, setEventOpen] = useState(false);
   const [joinId, setJoinId] = useState('');
   const [formError, setFormError] = useState('');
+  const [coverImageError, setCoverImageError] = useState('');
+  const [lodgingImageError, setLodgingImageError] = useState('');
   const [joinOpen, setJoinOpen] = useState(false);
   const [joinPreview, setJoinPreview] = useState(null);
   const [previewWorking, setPreviewWorking] = useState(false);
@@ -168,6 +255,7 @@ export default function TravelPlanner({ uid, trips, loadState, error, working, o
     setEditingLodgingId(lodging.formId);
     setLodgingDraft({ ...lodging });
     setNewLodgingDraft(isNew);
+    setLodgingImageError('');
   }
 
   function updateFlightDraft(field, value) {
@@ -255,7 +343,10 @@ export default function TravelPlanner({ uid, trips, loadState, error, working, o
 
   function startCreate() {
     setTrip(emptyTrip());
+    setCoverImageError('');
+    setLodgingImageError('');
     setDailySummaries({});
+    setDailyLocations({});
     setEditingFlightId(null);
     setFlightDraft(null);
     setEditingLodgingId(null);
@@ -340,11 +431,13 @@ export default function TravelPlanner({ uid, trips, loadState, error, working, o
   async function submitTrip() {
     setFormError('');
     try {
-      const itineraryDates = new Set([...Object.keys(itinerary), ...Object.keys(dailySummaries)]);
+      const itineraryDates = new Set([...Object.keys(itinerary), ...Object.keys(dailySummaries), ...Object.keys(dailyLocations)]);
       const storedItinerary = Object.fromEntries([...itineraryDates].flatMap((date) => {
         const dayData = {};
+        const area = dailyLocations[date]?.trim();
         const summary = dailySummaries[date]?.trim();
         const events = itinerary[date] || [];
+        if (area) dayData.area = area;
         if (summary) dayData.summary = summary;
         if (events.length) dayData.events = Object.fromEntries(events.map(({ id, ...item }) => [id, item]));
         return Object.keys(dayData).length ? [[date, dayData]] : [];
@@ -405,6 +498,7 @@ export default function TravelPlanner({ uid, trips, loadState, error, working, o
                 <label className="planner-field planner-field-wide"><span>旅行描述</span><textarea value={trip.description} onChange={(event) => updateTripField('description', event.target.value)} maxLength={500} placeholder="記下這趟旅行的期待或重點。" rows={3} /></label>
                 <Field label="出發日期" type="date" value={trip.startDate} onChange={(event) => updateTripField('startDate', event.target.value)} required />
                 <Field label="回程日期" type="date" value={trip.endDate} min={trip.startDate || undefined} onChange={(event) => updateTripField('endDate', event.target.value)} required />
+                <ImageUploadField label="旅行封面圖片" image={trip.coverImage} error={coverImageError} onChange={(event) => { void loadSelectedImage(event, (coverImage) => updateTripField('coverImage', coverImage), setCoverImageError); }} onRemove={() => { updateTripField('coverImage', ''); setCoverImageError(''); }} />
               </div>
             </section>
 
@@ -439,6 +533,7 @@ export default function TravelPlanner({ uid, trips, loadState, error, working, o
                   <Field className="lodging-third-field" label="退房日期" type="date" value={lodgingDraft.checkOut} min={lodgingDraft.checkIn || trip.startDate} max={trip.endDate} onChange={(event) => updateLodgingDraft('checkOut', event.target.value)} required />
                   <Field className="lodging-third-field" label="住宿金額（TWD）" type="number" min="0" step="1" value={lodgingDraft.price} onChange={(event) => updateLodgingDraft('price', event.target.value)} placeholder="可留白" />
                   <label className="planner-field planner-field-wide"><span>住宿備註</span><textarea value={lodgingDraft.note} onChange={(event) => updateLodgingDraft('note', event.target.value)} rows={2} placeholder="入住提醒、訂房資訊等" /></label>
+                  <ImageUploadField label="住宿封面圖片" image={lodgingDraft.coverImage} error={lodgingImageError} onChange={(event) => { void loadSelectedImage(event, (coverImage) => updateLodgingDraft('coverImage', coverImage), setLodgingImageError); }} onRemove={() => { updateLodgingDraft('coverImage', ''); setLodgingImageError(''); }} />
                 </div>
               </article> : <article className="planner-repeat-card planner-saved-card" key={lodging.formId}>
                 <header className="planner-repeat-heading"><h3><BedDouble size={16} />住宿 {index + 1}</h3><div className="planner-item-controls"><button className="planner-edit-item" type="button" aria-label={`編輯住宿 ${index + 1}`} title="編輯住宿" onClick={() => startLodgingDraft(lodging)} disabled={Boolean(editingFlightId || editingLodgingId)}><Pencil size={16} /></button><button className="planner-remove-item" type="button" aria-label={`刪除住宿 ${index + 1}`} title="刪除住宿" onClick={() => removeLodging(lodging.formId)}><Trash2 size={15} /></button></div></header>
@@ -453,6 +548,7 @@ export default function TravelPlanner({ uid, trips, loadState, error, working, o
           <div className="planner-schedule">
             <div className="planner-date-strip" aria-label="選擇行程日期">{days.map((day) => <button className={`planner-date-circle${selectedDay?.date === day.date ? ' active' : ''}`} type="button" key={day.date} onClick={() => { setSelectedDate(day.date); setEventOpen(false); }}><span>DAY {day.day}</span><strong>{day.date.slice(-2)}</strong><small>{day.weekday}</small></button>)}</div>
             {selectedDay && <section className="planner-day-editor"><header><div><p>{selectedDay.date} · {selectedDay.weekday}</p><h2>第 {selectedDay.day} 天</h2></div><MapPin size={19} /></header>
+              <label className="planner-field planner-day-summary-field"><span>每日主要地點</span><input maxLength={100} value={dailyLocations[selectedDay.date] || ''} onChange={(event) => setDailyLocations((current) => ({ ...current, [selectedDay.date]: event.target.value }))} placeholder={trip.country || '輸入今天的主要地點'} /></label>
               <label className="planner-field planner-day-summary-field"><span>當日行程摘要</span><textarea rows={3} maxLength={500} value={dailySummaries[selectedDay.date] || ''} onChange={(event) => setDailySummaries((current) => ({ ...current, [selectedDay.date]: event.target.value }))} placeholder="單獨記下這一天的重點或安排。" /></label>
               {selectedEvents.length ? <ol className="planner-event-list">{selectedEvents.map((item) => <li key={item.id}><span>{[item.startTime, item.endTime].filter(Boolean).join('–') || '時間未定'}</span><div><strong>{item.title}</strong><p>{item.description || '沒有描述'}</p>{item.address && <small><MapPin size={12} />{item.address}</small>}</div></li>)}</ol> : <p className="planner-no-events">這天還沒有安排，新增第一個行程吧。</p>}
               {eventOpen ? <form className="planner-event-form" onSubmit={addEvent}><div className="planner-fields-grid"><Field label="行程標題" value={eventDraft.title} onChange={(event) => setEventDraft((current) => ({ ...current, title: event.target.value }))} maxLength={100} placeholder="例如：參觀清水寺" required /><label className="planner-field"><span>行程類型</span><select value={eventDraft.type} onChange={(event) => setEventDraft((current) => ({ ...current, type: event.target.value }))}>{itineraryTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><Field label="地址" value={eventDraft.address} onChange={(event) => setEventDraft((current) => ({ ...current, address: event.target.value }))} placeholder="地點或地址" /><label className="planner-field planner-field-wide"><span>行程描述</span><textarea value={eventDraft.description} onChange={(event) => setEventDraft((current) => ({ ...current, description: event.target.value }))} rows={2} placeholder="備註或想做的事" /></label><Field label="開始時間" type="time" value={eventDraft.startTime} onChange={(event) => setEventDraft((current) => ({ ...current, startTime: event.target.value }))} /><Field label="結束時間" type="time" value={eventDraft.endTime} onChange={(event) => setEventDraft((current) => ({ ...current, endTime: event.target.value }))} /></div><div className="planner-inline-actions"><button className="planner-primary" type="submit"><Check size={15} />加入行程</button><button className="planner-secondary" type="button" onClick={() => setEventOpen(false)}>取消</button></div></form> : <button className="planner-add-event" type="button" onClick={() => setEventOpen(true)}><CirclePlus size={18} />加入行程</button>}
@@ -478,7 +574,8 @@ export default function TravelPlanner({ uid, trips, loadState, error, working, o
             <button className="planner-primary planner-lookup-button" type="submit" aria-label="查詢旅行" title="查詢旅行" disabled={previewWorking || !joinId.trim()}>{previewWorking ? <span className="planner-lookup-spinner" /> : <ArrowRight size={19} />}</button>
           </form>
           {formError && <p className="planner-error" role="alert">{formError}</p>}
-          {joinPreview && <div className="planner-trip-preview">
+          {joinPreview && <div className={`planner-trip-preview${joinPreview.coverImage ? ' has-cover' : ''}`}>
+            {joinPreview.coverImage && <img className="planner-trip-preview-cover" src={joinPreview.coverImage} alt="" />}
             <p className="planner-trip-preview-country">{joinPreview.country || '未設定國家'}</p>
             <h3>{joinPreview.title}</h3>
             <dl><div><dt>建立者</dt><dd>{joinPreview.participants?.[joinPreview.ownerId]?.name || '旅程建立者'}</dd></div><div><dt>旅行日期</dt><dd>{formatTripDateRange(joinPreview.startDate, joinPreview.endDate) || '尚未設定'}</dd></div><div><dt>參與人數</dt><dd>{Object.keys(joinPreview.participants || {}).length} 人</dd></div></dl>

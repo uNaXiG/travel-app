@@ -3,7 +3,7 @@ import { DndContext, KeyboardSensor, MouseSensor, TouchSensor, closestCenter, us
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import ExpensePage from './ExpensePage.jsx';
-import TravelPlanner, { TravelIdCopyButton } from './TravelPlanner.jsx';
+import TravelPlanner, { ParticipantAvatarStack, TravelIdCopyButton } from './TravelPlanner.jsx';
 import { getAirportLabel } from './airports.js';
 import { travelStore } from '../travelStore.js';
 import { formatTripDateRange, getTripsWithLodging, groupFlightsByTrip, itineraryTypeOptions, toOverviewDays } from './travelUtils.js';
@@ -153,12 +153,13 @@ function EventCard({ event, onUpdate, onDelete }) {
   );
 }
 
-function DayCard({ day, isOpen, onToggle, onAddEvent, onUpdateEvent, onDeleteEvent, onUpdateSummary }) {
+function DayCard({ day, isOpen, onToggle, onAddEvent, onUpdateEvent, onDeleteEvent, onUpdateDetails }) {
   const [addOpen, setAddOpen] = useState(false);
   const [eventDraft, setEventDraft] = useState({ title: '', description: '', startTime: '', endTime: '', address: '', type: 'sight' });
   const [savingEvent, setSavingEvent] = useState(false);
   const [eventError, setEventError] = useState('');
   const [summaryEditing, setSummaryEditing] = useState(false);
+  const [areaDraft, setAreaDraft] = useState(day.area || '');
   const [summaryDraft, setSummaryDraft] = useState(day.summary || '');
   const [summarySaving, setSummarySaving] = useState(false);
   const [summaryError, setSummaryError] = useState('');
@@ -168,21 +169,28 @@ function DayCard({ day, isOpen, onToggle, onAddEvent, onUpdateEvent, onDeleteEve
     if (!summaryEditing) setSummaryDraft(day.summary || '');
   }, [day.summary, summaryEditing]);
 
-  async function saveSummary(event) {
+  useEffect(() => {
+    if (summaryEditing) return;
+    setAreaDraft(day.area || '');
+    setSummaryDraft(day.summary || '');
+  }, [day.area, day.summary, summaryEditing]);
+
+  async function saveDayDetails(event) {
     event.preventDefault();
     setSummarySaving(true);
     setSummaryError('');
     try {
-      await onUpdateSummary(day.date, summaryDraft);
+      await onUpdateDetails(day.date, { area: areaDraft, summary: summaryDraft });
       setSummaryEditing(false);
     } catch (error) {
-      setSummaryError(error.message || '儲存每日摘要失敗，請稍後再試。');
+      setSummaryError(error.message || '儲存每日資訊失敗，請稍後再試。');
     } finally {
       setSummarySaving(false);
     }
   }
 
   function cancelSummaryEdit() {
+    setAreaDraft(day.area || '');
     setSummaryDraft(day.summary || '');
     setSummaryError('');
     setSummaryEditing(false);
@@ -205,22 +213,24 @@ function DayCard({ day, isOpen, onToggle, onAddEvent, onUpdateEvent, onDeleteEve
 
   return (
     <article className={`day-card${isOpen ? ' day-open' : ''}`}>
-      <button id={`day-card-heading-${day.id}`} className="day-card-heading" type="button" onClick={onToggle} aria-expanded={isOpen}>
+      <div id={`day-card-heading-${day.id}`} className="day-card-heading">
+        <button className="day-card-toggle" type="button" onClick={onToggle} aria-label={`${isOpen ? '收合' : '展開'}第 ${day.id} 天行程`} aria-expanded={isOpen} aria-controls={`day-card-body-${day.id}`} />
         <span className="day-index">{String(day.id).padStart(2, '0')}</span>
         <span className="day-title-group">
           <span className="day-date">{day.weekday}　·　{day.date}</span>
-          <span className="day-title">{day.title}</span>
+          <span className="day-title-line"><span className="day-title">{day.title}</span>{onUpdateDetails && <button className="day-title-edit-button" type="button" aria-label={`編輯第 ${day.id} 天地點與摘要`} title="編輯每日地點與摘要" onClick={() => { setSummaryError(''); setAreaDraft(day.area || ''); setSummaryDraft(day.summary || ''); setSummaryEditing(true); }}><Pencil size={15} /></button>}</span>
           <span className="day-area"><MapPin size={12} />{day.area}</span>
         </span>
         <ChevronDown className="day-chevron" size={18} />
-      </button>
+      </div>
       {isOpen && (
         <div id={`day-card-body-${day.id}`} className="day-card-body">
-          {summaryEditing ? <form className="day-summary-edit-form" onSubmit={saveSummary}>
-            <label className="planner-field"><span>第 {day.id} 天摘要</span><textarea autoFocus rows={3} maxLength={500} value={summaryDraft} onChange={(event) => setSummaryDraft(event.target.value)} placeholder="單獨記下這一天的重點或安排。" /></label>
+          {summaryEditing ? <form className="day-summary-edit-form" onSubmit={saveDayDetails}>
+            <label className="planner-field"><span>第 {day.id} 天主要地點</span><input autoFocus maxLength={100} value={areaDraft} onChange={(event) => setAreaDraft(event.target.value)} placeholder="輸入今天的主要地點" /></label>
+            <label className="planner-field"><span>第 {day.id} 天摘要</span><textarea rows={3} maxLength={500} value={summaryDraft} onChange={(event) => setSummaryDraft(event.target.value)} placeholder="單獨記下這一天的重點或安排。" /></label>
             {summaryError && <p className="planner-error" role="alert">{summaryError}</p>}
-            <div className="day-summary-actions"><button className="planner-primary" type="submit" disabled={summarySaving}>{summarySaving ? '儲存中…' : <><Check size={15} />儲存摘要</>}</button><button className="planner-secondary" type="button" onClick={cancelSummaryEdit} disabled={summarySaving}><ArrowLeft size={15} />取消</button></div>
-          </form> : <div className="day-summary-row"><p className={`day-summary${day.summary ? '' : ' is-empty'}`}>{day.summary || '尚未新增每日摘要。'}</p>{onUpdateSummary && <button className="day-summary-edit-button" type="button" aria-label={`編輯第 ${day.id} 天摘要`} title="編輯每日摘要" onClick={() => { setSummaryError(''); setSummaryDraft(day.summary || ''); setSummaryEditing(true); }}><Pencil size={15} /></button>}</div>}
+            <div className="day-summary-actions"><button className="planner-primary" type="submit" disabled={summarySaving}>{summarySaving ? '儲存中…' : <><Check size={15} />儲存每日資訊</>}</button><button className="planner-secondary" type="button" onClick={cancelSummaryEdit} disabled={summarySaving}><ArrowLeft size={15} />取消</button></div>
+          </form> : <div className="day-summary-row"><p className={`day-summary${day.summary ? '' : ' is-empty'}`}>{day.summary || '尚未新增每日摘要。'}</p></div>}
           <div className="schedule-list">
             {day.events.map((event, index) => <EventCard event={event} key={event.id || `${day.id}-${index}`} onUpdate={onUpdateEvent ? (eventId, draft) => onUpdateEvent(eventId, draft) : undefined} onDelete={onDeleteEvent ? (eventId) => onDeleteEvent(eventId) : undefined} />)}
           </div>
@@ -282,7 +292,7 @@ function TripStatusCard({ trip }) {
   );
 }
 
-function TripOverview({ trip, onAddEvent, onUpdateEvent, onDeleteEvent, onUpdateSummary, onBack }) {
+function TripOverview({ trip, onAddEvent, onUpdateEvent, onDeleteEvent, onUpdateDetails, onBack }) {
   const days = toOverviewDays(trip);
   const [openDay, setOpenDay] = useState(1);
   const [pendingScrollDay, setPendingScrollDay] = useState(null);
@@ -306,7 +316,8 @@ function TripOverview({ trip, onAddEvent, onUpdateEvent, onDeleteEvent, onUpdate
   return (
     <>
       <button className="planner-back" type="button" onClick={onBack}><ArrowLeft size={16} />返回旅程總覽</button>
-      <section className="trip-hero">
+      <section className={`trip-hero${trip.coverImage ? ' has-cover' : ''}`}>
+        {trip.coverImage && <img className="trip-hero-cover" src={trip.coverImage} alt="" />}
         <div className="trip-hero-copy">
           <span className="trip-eyebrow"><span /> TRAVEL JOURNAL</span>
           <div className="trip-hero-heading">
@@ -316,6 +327,7 @@ function TripOverview({ trip, onAddEvent, onUpdateEvent, onDeleteEvent, onUpdate
           <p>{trip.description}</p>
           <div className="trip-meta"><span><CalendarDays size={15} />{formatTripDateRange(trip.startDate, trip.endDate)}</span><span><MapPin size={15} />{trip.country}</span></div>
         </div>
+        <div className="trip-hero-participants"><ParticipantAvatarStack participants={Object.values(trip.participants || {})} limit={6} className="participant-stack--hero" /></div>
       </section>
 
       <section className="itinerary-section">
@@ -325,7 +337,7 @@ function TripOverview({ trip, onAddEvent, onUpdateEvent, onDeleteEvent, onUpdate
         </div>
         <div className="day-list">
           {days.map((day) => (
-            <DayCard key={day.id} day={day} isOpen={openDay === day.id} onToggle={() => toggleDay(day.id)} onAddEvent={onAddEvent} onUpdateSummary={onUpdateSummary} onUpdateEvent={(eventId, draft) => onUpdateEvent(day.date, eventId, draft)} onDeleteEvent={(eventId) => onDeleteEvent(day.date, eventId)} />
+            <DayCard key={day.id} day={day} isOpen={openDay === day.id} onToggle={() => toggleDay(day.id)} onAddEvent={onAddEvent} onUpdateDetails={onUpdateDetails} onUpdateEvent={(eventId, draft) => onUpdateEvent(day.date, eventId, draft)} onDeleteEvent={(eventId) => onDeleteEvent(day.date, eventId)} />
           ))}
         </div>
       </section>
@@ -545,7 +557,7 @@ function LodgingPage({ trips }) {
               <span className="transport-section-side">{trip.id}</span>
             </header>
             <article className="lodging-card">
-              <div className="lodging-visual" aria-hidden="true" />
+              {lodging.coverImage ? <img className="lodging-visual lodging-custom-cover" src={lodging.coverImage} alt={`${lodging.name || '住宿'}封面`} /> : <div className="lodging-visual" aria-hidden="true" />}
               <div className="lodging-body">
                 <div className="lodging-kicker"><BedDouble size={15} /> ACCOMMODATION</div>
                 <h2>{lodging.name || '住宿資訊'}</h2>
@@ -616,7 +628,7 @@ export default function TravelHome({ user, onSignOut, packingStore, expenseStore
 
   useEffect(() => {
     let active = true;
-    let unsubscribe = () => {};
+    let unsubscribe = () => { };
     setTravelLoadState('loading');
     setTravelError('');
     try {
@@ -757,8 +769,8 @@ export default function TravelHome({ user, onSignOut, packingStore, expenseStore
     return runTravelAction(() => travelStore.removeEvent(tripId, date, eventId));
   }
 
-  function updateTripDaySummary(tripId, date, summary) {
-    return runTravelAction(() => travelStore.updateDaySummary(tripId, date, summary));
+  function updateTripDayDetails(tripId, date, details) {
+    return runTravelAction(() => travelStore.updateDayDetails(tripId, date, details));
   }
 
   async function handleSignOut() {
@@ -832,7 +844,7 @@ export default function TravelHome({ user, onSignOut, packingStore, expenseStore
         <main className="trip-content">
           {section === 'itinerary' && !activeTravelId && <TravelPlanner key={section} uid={user.uid} trips={travelItems} loadState={travelLoadState} error={travelError} working={travelWorking} onCreate={createTrip} onJoin={joinTrip} onPreviewJoin={previewTrip} onDeleteTrip={deleteTrip} onOpenTrip={(tripId) => { setActiveTravelId(tripId); setSection('itinerary'); }} />}
           {section === 'itinerary' && activeTravelId && !activeTrip && <div className="planner-empty-state">正在載入旅程…</div>}
-          {section === 'itinerary' && activeTrip && <TripOverview key={activeTrip.id} trip={activeTrip} onAddEvent={(date, event) => addTripEvent(activeTrip.id, date, event)} onUpdateEvent={(date, eventId, event) => updateTripEvent(activeTrip.id, date, eventId, event)} onDeleteEvent={(date, eventId) => deleteTripEvent(activeTrip.id, date, eventId)} onUpdateSummary={(date, summary) => updateTripDaySummary(activeTrip.id, date, summary)} onBack={() => setActiveTravelId(null)} />}
+          {section === 'itinerary' && activeTrip && <TripOverview key={activeTrip.id} trip={activeTrip} onAddEvent={(date, event) => addTripEvent(activeTrip.id, date, event)} onUpdateEvent={(date, eventId, event) => updateTripEvent(activeTrip.id, date, eventId, event)} onDeleteEvent={(date, eventId) => deleteTripEvent(activeTrip.id, date, eventId)} onUpdateDetails={(date, details) => updateTripDayDetails(activeTrip.id, date, details)} onBack={() => setActiveTravelId(null)} />}
           {section === 'transport' && <TransportationPage trips={travelItems} />}
           {section === 'lodging' && <LodgingPage trips={travelItems} />}
           {section === 'expenses' && <ExpensePage user={user} expenseStore={expenseStore} />}

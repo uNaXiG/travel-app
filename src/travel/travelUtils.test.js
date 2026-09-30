@@ -1,7 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { airports } from './airports.js';
+import { MAX_IMAGE_FILE_SIZE, validateImageFile } from './imageUtils.js';
 import { buildTripDays, buildTripDeletionUpdates, formatTripDateRange, getTripsWithLodging, groupFlightsByTrip, isTripOwner, toOverviewDays } from './travelUtils.js';
+
+test('image uploads accept JPEG and PNG files up to 1 MiB', () => {
+  assert.equal(validateImageFile({ type: 'image/jpeg', size: MAX_IMAGE_FILE_SIZE }), undefined);
+  assert.equal(validateImageFile({ type: 'image/png', size: 1 }), undefined);
+});
+
+test('image uploads reject unsupported, empty, and oversized files', () => {
+  assert.throws(() => validateImageFile({ type: 'image/gif', size: 1 }), /JPG 或 PNG/);
+  assert.throws(() => validateImageFile({ type: 'image/png', size: 0 }), /JPG 或 PNG/);
+  assert.throws(() => validateImageFile({ type: 'image/jpeg', size: MAX_IMAGE_FILE_SIZE + 1 }), /1 MiB/);
+});
 
 test('buildTripDays returns every date inclusively across a leap day', () => {
   const days = buildTripDays('2028-02-28', '2028-03-01');
@@ -26,23 +38,31 @@ test('trip display helpers format date ranges and stored itinerary events', () =
     endDate: '2026-10-22',
     country: '日本',
     description: '這是整趟旅行的描述，不應成為每日摘要。',
-    itinerary: { '2026-10-22': { events: {
-      event1: { title: '抵達', type: 'transport', startTime: '09:00', endTime: '10:00', address: '機場' },
-      event2: { title: '入住', type: 'stay' },
-      event3: { title: '採買', type: 'shopping' },
-      event4: { title: '用餐', type: 'food' },
-      event5: { title: '景點', type: 'sight' },
-      event6: { title: '舊資料' },
-    } } },
+    itinerary: {
+      '2026-10-22': {
+        area: '大阪',
+        events: {
+          event1: { title: '抵達', type: 'transport', startTime: '09:00', endTime: '10:00', address: '機場' },
+          event2: { title: '入住', type: 'stay' },
+          event3: { title: '採買', type: 'shopping' },
+          event4: { title: '用餐', type: 'food' },
+          event5: { title: '景點', type: 'sight' },
+          event6: { title: '舊資料' },
+        }
+      }
+    },
   });
 
   assert.equal(day.events[0].time, '09:00–10:00');
   assert.equal(day.events[0].id, 'event1');
   assert.equal(day.events[0].location, '機場');
+  assert.equal(day.area, '大阪');
   assert.equal(day.events[0].category, '交通');
   assert.deepEqual(day.events.map(({ category }) => category), ['交通', '住宿', '購物', '餐廳', '景點', '景點']);
   assert.equal(day.summary, '');
-  assert.equal(toOverviewDays({ startDate: '2026-10-22', endDate: '2026-10-22', description: '整趟描述', itinerary: { '2026-10-22': { summary: '第一天摘要' } } })[0].summary, '第一天摘要');
+  const [fallbackDay] = toOverviewDays({ startDate: '2026-10-22', endDate: '2026-10-22', country: '日本', description: '整趟描述', itinerary: { '2026-10-22': { summary: '第一天摘要' } } });
+  assert.equal(fallbackDay.summary, '第一天摘要');
+  assert.equal(fallbackDay.area, '日本');
 });
 
 test('transport and lodging records stay grouped under their own trips', () => {

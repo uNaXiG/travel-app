@@ -94,7 +94,7 @@ export function toOverviewDays(trip) {
     return {
       ...day,
       id: day.day,
-      area: trip.country,
+      area: storedDay?.area || trip.country,
       title: `第 ${day.day} 天`,
       summary: storedDay?.summary || '',
       guide: storedDay?.guide || '',

@@ -80,6 +80,7 @@ export const travelStore = {
       country: input.country.trim(),
       startDate: input.startDate,
       endDate: input.endDate,
+      coverImage: input.coverImage || '',
       flights: input.flights,
       lodging: input.lodging,
       itinerary: input.itinerary || {},
@@ -127,15 +128,15 @@ export const travelStore = {
     const eventRef = push(ref(database, `trips/${tripId}/itinerary/${date}/events`));
     return update(ref(database), {
       [`trips/${tripId}/itinerary/${date}/events/${eventRef.key}`]: {
-      title: event.title.trim(),
-      description: event.description.trim(),
-      startTime: event.startTime,
-      endTime: event.endTime,
-      address: event.address.trim(),
-      type: event.type || 'sight',
-      createdBy: uid,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
+        title: event.title.trim(),
+        description: event.description.trim(),
+        startTime: event.startTime,
+        endTime: event.endTime,
+        address: event.address.trim(),
+        type: event.type || 'sight',
+        createdBy: uid,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       },
       [`trips/${tripId}/updatedAt`]: serverTimestamp(),
     });
@@ -156,10 +157,11 @@ export const travelStore = {
     });
   },
 
-  updateDaySummary(tripId, date, summary) {
+  updateDayDetails(tripId, date, details) {
     const database = requireDatabase();
     return update(ref(database), {
-      [`trips/${tripId}/itinerary/${date}/summary`]: summary.trim() || null,
+      [`trips/${tripId}/itinerary/${date}/area`]: details.area.trim() || null,
+      [`trips/${tripId}/itinerary/${date}/summary`]: details.summary.trim() || null,
       [`trips/${tripId}/updatedAt`]: serverTimestamp(),
     });
   },
