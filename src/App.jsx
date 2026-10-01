@@ -77,7 +77,7 @@ function App() {
     setBusyProvider(providerType);
     try {
       const provider = providerType === 'facebook' ? new FacebookAuthProvider() : new GoogleAuthProvider();
-      await signInWithRedirect(auth, provider);
+      await signInWithPopup(auth, provider);
       setNotice({ type: 'success', text: '登入成功，準備出發。' });
     } catch (error) {
       const fallbackToRedirectCodes = ['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment'];
