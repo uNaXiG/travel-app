@@ -53,17 +53,24 @@ button {
   place-items: center;
   padding: 28px 20px;
   overflow: hidden;
-  background: #e9ebe3;
+  background-color: #0a0e13;
+  background-image:
+    radial-gradient(1px 1px at 24px 31px, rgba(230, 238, 244, .66) 98%, transparent),
+    radial-gradient(1px 1px at 111px 79px, rgba(210, 224, 232, .47) 98%, transparent),
+    radial-gradient(1px 1px at 205px 19px, rgba(238, 227, 201, .42) 98%, transparent),
+    radial-gradient(1.5px 1.5px at 307px 139px, rgba(226, 236, 242, .55) 98%, transparent);
+  background-size: 370px 230px, 430px 310px, 510px 350px, 620px 470px;
 }
 
 .visual-image {
   position: fixed;
   inset: 0;
   z-index: -1;
-  background-image: url('./assets/mainimg.jpg');
-  background-position: center;
-  background-size: cover;
-  opacity: .8;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 12% 16%, rgba(255, 255, 255, .08) 0%, transparent 42%),
+    radial-gradient(circle at 82% 72%, rgba(194, 170, 134, .08) 0%, transparent 40%),
+    linear-gradient(165deg, rgba(8, 12, 15, .16), rgba(8, 12, 15, .4));
 }
 
 .brand {
@@ -489,21 +496,11 @@ button {
   }
 }
 
-@media (max-width: 900px) {
-  .visual-image {
-    background-position: center;
-  }
-}
-
 @media (max-width: 700px) {
   .auth-shell {
     min-height: 100vh;
     min-height: 100svh;
     padding: 18px 14px;
-  }
-
-  .visual-image {
-    background-position: 58% center;
   }
 
   .form-panel {
