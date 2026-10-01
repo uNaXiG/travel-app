@@ -103,6 +103,10 @@ button {
   backdrop-filter: blur(18px) saturate(130%);
 }
 
+.social-auth-panel {
+  width: min(100%, 520px);
+}
+
 .form-topline {
   display: flex;
   min-height: 26px;
@@ -153,6 +157,10 @@ button {
   margin: auto;
   padding: 32px 0;
   animation: copy-arrive .35s ease both;
+}
+
+.social-auth-panel .form-content {
+  width: min(100%, 420px);
 }
 
 .section-kicker {
@@ -305,6 +313,63 @@ button {
   opacity: .78;
 }
 
+.social-login-grid {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.social-login-button {
+  display: flex;
+  width: 100%;
+  height: 50px;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  font-size: 13px;
+  font-weight: 700;
+  transition: transform .18s, box-shadow .18s, filter .18s;
+}
+
+.social-login-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, .18);
+}
+
+.social-login-button:disabled {
+  cursor: wait;
+  opacity: .72;
+}
+
+.social-login-icon {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+}
+
+.social-login-google {
+  color: #2e332d;
+  background: #f8faf7;
+  border-color: #d7ddd3;
+}
+
+.social-login-google:hover:not(:disabled) {
+  background: #ffffff;
+}
+
+.social-login-facebook {
+  color: #ffffff;
+  background: #1877f2;
+  border-color: #0f64d1;
+}
+
+.social-login-facebook:hover:not(:disabled) {
+  background: #1369d8;
+}
+
 .auth-divider {
   display: flex;
   align-items: center;
@@ -370,6 +435,12 @@ button {
   border-color: #54805a;
   background: #edf4eb;
   color: #355d3d;
+}
+
+.notice.info {
+  border-color: #6d7e8f;
+  background: #ebf0f6;
+  color: #2f475f;
 }
 
 .terms {
@@ -438,6 +509,10 @@ button {
   .form-panel {
     width: min(100%, 470px);
     padding: 24px clamp(20px, 6vw, 30px) 16px;
+  }
+
+  .social-auth-panel {
+    width: min(100%, 480px);
   }
 
   .brand {

@@ -116,6 +116,29 @@
             }
           }
         },
+        "tripPackingItems": {
+          "$tripId": {
+            ".read": "auth != null && auth.uid === $uid",
+            ".write": "auth != null && (auth.uid === $uid || (!newData.exists() && root.child('trips').child($tripId).child('ownerId').val() === auth.uid))",
+            "$itemId": {
+              "name": {
+                ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 80"
+              },
+              "packed": {
+                ".validate": "newData.isBoolean()"
+              },
+              "sortOrder": {
+                ".validate": "newData.isNumber()"
+              },
+              "createdAt": {
+                ".validate": "newData.isNumber()"
+              },
+              "updatedAt": {
+                ".validate": "newData.isNumber()"
+              }
+            }
+          }
+        },
         "trips": {
           ".read": "auth != null && auth.uid === $uid",
           ".write": "auth != null && auth.uid === $uid",

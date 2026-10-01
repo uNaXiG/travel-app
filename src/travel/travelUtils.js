@@ -1,4 +1,6 @@
 const weekdayNames = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
+import { resolveStoredDayLocation } from './locationMapping.js';
+
 export const itineraryTypeOptions = [
   { value: 'transport', label: '交通' },
   { value: 'stay', label: '住宿' },
@@ -99,6 +101,7 @@ export function buildTripDeletionUpdates(tripId, trip) {
   Object.keys(trip.participants || {}).forEach((uid) => {
     updates[`users/${uid}/trips/${tripId}`] = null;
     updates[`users/${uid}/tripExpenses/${tripId}`] = null;
+    updates[`users/${uid}/tripPackingItems/${tripId}`] = null;
   });
   return updates;
 }
@@ -110,10 +113,12 @@ export function isTripOwner(trip, uid) {
 export function toOverviewDays(trip) {
   return buildTripDays(trip.startDate, trip.endDate).map((day) => {
     const storedDay = trip.itinerary?.[day.date];
+    const location = resolveStoredDayLocation(storedDay);
     return {
       ...day,
       id: day.day,
-      area: storedDay?.area || trip.country,
+      area: location?.displayName || storedDay?.area || trip.country,
+      location,
       title: `第 ${day.day} 天`,
       summary: storedDay?.summary || '',
       guide: storedDay?.guide || '',

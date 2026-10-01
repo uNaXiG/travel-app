@@ -7,6 +7,7 @@ import {
   update,
 } from 'firebase/database';
 import { db } from './firebase.js';
+import { toStoredDayLocation } from './travel/locationMapping.js';
 import { buildTripDeletionUpdates, isTripOwner } from './travel/travelUtils.js';
 
 function requireDatabase() {
@@ -159,8 +160,10 @@ export const travelStore = {
 
   updateDayDetails(tripId, date, details) {
     const database = requireDatabase();
+    const location = toStoredDayLocation(details.locationKey);
     return update(ref(database), {
-      [`trips/${tripId}/itinerary/${date}/area`]: details.area.trim() || null,
+      [`trips/${tripId}/itinerary/${date}/area`]: location?.displayName || null,
+      [`trips/${tripId}/itinerary/${date}/location`]: location,
       [`trips/${tripId}/itinerary/${date}/summary`]: details.summary.trim() || null,
       [`trips/${tripId}/updatedAt`]: serverTimestamp(),
     });

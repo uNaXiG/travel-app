@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { airports } from './airports.js';
 import { MAX_IMAGE_FILE_SIZE, validateImageFile } from './imageUtils.js';
+import { getDailyLocationByKey, toStoredDayLocation, toWeatherApiParams } from './locationMapping.js';
 import { buildTripDays, buildTripDeletionUpdates, formatTripDateRange, getTripsWithLodging, groupFlightsByTrip, isTripOwner, toOverviewDays } from './travelUtils.js';
 
 test('image uploads accept JPEG and PNG files up to 1 MiB', () => {
@@ -40,7 +41,7 @@ test('trip display helpers format date ranges and stored itinerary events', () =
     description: '這是整趟旅行的描述，不應成為每日摘要。',
     itinerary: {
       '2026-10-22': {
-        area: '大阪',
+        area: '日本, 大阪',
         events: {
           event1: { title: '抵達', type: 'transport', startTime: '09:00', endTime: '10:00', address: '機場' },
           event2: { title: '入住', type: 'stay' },
@@ -56,13 +57,36 @@ test('trip display helpers format date ranges and stored itinerary events', () =
   assert.equal(day.events[0].time, '09:00–10:00');
   assert.equal(day.events[0].id, 'event1');
   assert.equal(day.events[0].location, '機場');
-  assert.equal(day.area, '大阪');
+  assert.equal(day.location?.key, 'jp-osaka');
+  assert.equal(day.area, '日本, 大阪');
   assert.equal(day.events[0].category, '交通');
   assert.deepEqual(day.events.map(({ category }) => category), ['交通', '住宿', '購物', '餐廳', '景點', '景點']);
   assert.equal(day.summary, '');
   const [fallbackDay] = toOverviewDays({ startDate: '2026-10-22', endDate: '2026-10-22', country: '日本', description: '整趟描述', itinerary: { '2026-10-22': { summary: '第一天摘要' } } });
   assert.equal(fallbackDay.summary, '第一天摘要');
   assert.equal(fallbackDay.area, '日本');
+});
+
+test('daily itinerary location mapping resolves weather API parameters from config', () => {
+  const tokyo = getDailyLocationByKey('jp-tokyo');
+  assert.equal(tokyo?.displayName, '日本, 東京');
+
+  const stored = toStoredDayLocation('jp-tokyo');
+  assert.deepEqual(stored, {
+    key: 'jp-tokyo',
+    country: '日本',
+    city: '東京',
+    displayName: '日本, 東京',
+    weatherMapping: 'Tokyo',
+  });
+
+  const weatherParams = toWeatherApiParams(stored);
+  assert.deepEqual(weatherParams, {
+    weatherQuery: 'Tokyo',
+    country: '日本',
+    city: '東京',
+    displayName: '日本, 東京',
+  });
 });
 
 test('itinerary events sort by start time with stable untimed ordering per day', () => {
@@ -129,8 +153,10 @@ test('trip deletion includes the trip and every participant membership index', (
     'trips/trip-123': null,
     'users/owner/trips/trip-123': null,
     'users/owner/tripExpenses/trip-123': null,
+    'users/owner/tripPackingItems/trip-123': null,
     'users/friend/trips/trip-123': null,
     'users/friend/tripExpenses/trip-123': null,
+    'users/friend/tripPackingItems/trip-123': null,
   });
 });
 

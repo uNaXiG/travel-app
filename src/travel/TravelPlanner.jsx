@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, BedDouble, CalendarDays, Check, CirclePlus, Copy, ImagePlus, MapPin, Pencil, Plane, Plus, Trash2, Users, X } from 'lucide-react';
 import { airports, getAirportLabel } from './airports.js';
+import { tripCountries } from '../config/tripCountries.js';
 import { readImageFileAsDataUrl } from './imageUtils.js';
+import { getDailyLocationByKey, getDailyLocationOptions } from './locationMapping.js';
 import { buildTripDays, formatTripDateRange, isTripOwner, itineraryTypeOptions, sortItineraryEvents } from './travelUtils.js';
 import './travelPlanner.css';
 
@@ -44,6 +46,7 @@ const airportGroups = [
   { country: 'TW', label: '台灣' },
   { country: 'JP', label: '日本' },
 ];
+const dailyLocationOptions = getDailyLocationOptions();
 
 function Field({ label, className = '', ...inputProps }) {
   return <label className={`planner-field${className ? ` ${className}` : ''}`}><span>{label}</span><input {...inputProps} /></label>;
@@ -434,10 +437,19 @@ export default function TravelPlanner({ uid, trips, loadState, error, working, o
       const itineraryDates = new Set([...Object.keys(itinerary), ...Object.keys(dailySummaries), ...Object.keys(dailyLocations)]);
       const storedItinerary = Object.fromEntries([...itineraryDates].flatMap((date) => {
         const dayData = {};
-        const area = dailyLocations[date]?.trim();
+        const selectedLocation = getDailyLocationByKey(dailyLocations[date]);
         const summary = dailySummaries[date]?.trim();
         const events = itinerary[date] || [];
-        if (area) dayData.area = area;
+        if (selectedLocation) {
+          dayData.area = selectedLocation.displayName;
+          dayData.location = {
+            key: selectedLocation.key,
+            country: selectedLocation.country,
+            city: selectedLocation.city,
+            displayName: selectedLocation.displayName,
+            weatherMapping: selectedLocation.weatherMapping,
+          };
+        }
         if (summary) dayData.summary = summary;
         if (events.length) dayData.events = Object.fromEntries(events.map(({ id, ...item }) => [id, item]));
         return Object.keys(dayData).length ? [[date, dayData]] : [];
@@ -494,7 +506,7 @@ export default function TravelPlanner({ uid, trips, loadState, error, working, o
             <section className="planner-form-section"><div className="planner-section-title"><span>01</span><div><h2>旅程主要資訊</h2><p>日期、目的地與同行人都可以再調整。</p></div></div>
               <div className="planner-fields-grid">
                 <Field label="旅行標題" value={trip.title} onChange={(event) => updateTripField('title', event.target.value)} maxLength={80} placeholder="例如：京都紅葉小旅行" required />
-                <Field label="國家／目的地" value={trip.country} onChange={(event) => updateTripField('country', event.target.value)} maxLength={80} placeholder="例如：日本・京都" required />
+                <label className="planner-field"><span>國家／目的地</span><select value={trip.country} onChange={(event) => updateTripField('country', event.target.value)} required><option value="">請選擇國家</option>{tripCountries.map((country) => <option key={country.code} value={country.name}>{country.name}</option>)}</select></label>
                 <label className="planner-field planner-field-wide"><span>旅行描述</span><textarea value={trip.description} onChange={(event) => updateTripField('description', event.target.value)} maxLength={500} placeholder="記下這趟旅行的期待或重點。" rows={3} /></label>
                 <Field label="出發日期" type="date" value={trip.startDate} onChange={(event) => updateTripField('startDate', event.target.value)} required />
                 <Field label="回程日期" type="date" value={trip.endDate} min={trip.startDate || undefined} onChange={(event) => updateTripField('endDate', event.target.value)} required />
@@ -548,7 +560,7 @@ export default function TravelPlanner({ uid, trips, loadState, error, working, o
           <div className="planner-schedule">
             <div className="planner-date-strip" aria-label="選擇行程日期">{days.map((day) => <button className={`planner-date-circle${selectedDay?.date === day.date ? ' active' : ''}`} type="button" key={day.date} onClick={() => { setSelectedDate(day.date); setEventOpen(false); }}><span>DAY {day.day}</span><strong>{day.date.slice(-2)}</strong><small>{day.weekday}</small></button>)}</div>
             {selectedDay && <section className="planner-day-editor"><header><div><p>{selectedDay.date} · {selectedDay.weekday}</p><h2>第 {selectedDay.day} 天</h2></div><MapPin size={19} /></header>
-              <label className="planner-field planner-day-summary-field"><span>每日主要地點</span><input maxLength={100} value={dailyLocations[selectedDay.date] || ''} onChange={(event) => setDailyLocations((current) => ({ ...current, [selectedDay.date]: event.target.value }))} placeholder={trip.country || '輸入今天的主要地點'} /></label>
+              <label className="planner-field planner-day-summary-field"><span>每日主要地點</span><select value={dailyLocations[selectedDay.date] || ''} onChange={(event) => setDailyLocations((current) => ({ ...current, [selectedDay.date]: event.target.value }))}><option value="">請選擇主要地點</option>{dailyLocationOptions.map((location) => <option key={location.key} value={location.key}>{location.displayName}</option>)}</select></label>
               <label className="planner-field planner-day-summary-field"><span>當日行程摘要</span><textarea rows={3} maxLength={500} value={dailySummaries[selectedDay.date] || ''} onChange={(event) => setDailySummaries((current) => ({ ...current, [selectedDay.date]: event.target.value }))} placeholder="單獨記下這一天的重點或安排。" /></label>
               {selectedEvents.length ? <ol className="planner-event-list">{selectedEvents.map((item) => <li key={item.id}><span>{[item.startTime, item.endTime].filter(Boolean).join('–') || '時間未定'}</span><div><strong>{item.title}</strong><p>{item.description || '沒有描述'}</p>{item.address && <small><MapPin size={12} />{item.address}</small>}</div></li>)}</ol> : <p className="planner-no-events">這天還沒有安排，新增第一個行程吧。</p>}
               {eventOpen ? <form className="planner-event-form" onSubmit={addEvent}><div className="planner-fields-grid"><Field label="行程標題" value={eventDraft.title} onChange={(event) => setEventDraft((current) => ({ ...current, title: event.target.value }))} maxLength={100} placeholder="例如：參觀清水寺" required /><label className="planner-field"><span>行程類型</span><select value={eventDraft.type} onChange={(event) => setEventDraft((current) => ({ ...current, type: event.target.value }))}>{itineraryTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><Field label="地址" value={eventDraft.address} onChange={(event) => setEventDraft((current) => ({ ...current, address: event.target.value }))} placeholder="地點或地址" /><label className="planner-field planner-field-wide"><span>行程描述</span><textarea value={eventDraft.description} onChange={(event) => setEventDraft((current) => ({ ...current, description: event.target.value }))} rows={2} placeholder="備註或想做的事" /></label><Field label="開始時間" type="time" value={eventDraft.startTime} onChange={(event) => setEventDraft((current) => ({ ...current, startTime: event.target.value }))} /><Field label="結束時間" type="time" value={eventDraft.endTime} onChange={(event) => setEventDraft((current) => ({ ...current, endTime: event.target.value }))} /></div><div className="planner-inline-actions"><button className="planner-primary" type="submit"><Check size={15} />加入行程</button><button className="planner-secondary" type="button" onClick={() => setEventOpen(false)}>取消</button></div></form> : <button className="planner-add-event" type="button" onClick={() => setEventOpen(true)}><CirclePlus size={18} />加入行程</button>}

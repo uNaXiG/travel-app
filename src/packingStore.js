@@ -9,14 +9,18 @@ import {
 } from 'firebase/database';
 import { db } from './firebase.js';
 
-function itemsReference(uid) {
+function itemsReference(uid, tripId) {
   if (!db) throw new Error('請在根目錄 .env 設定 VITE_FIREBASE_DATABASE_URL。');
-  return ref(db, `users/${uid}/packingItems`);
+  return tripId ? ref(db, `users/${uid}/tripPackingItems/${tripId}`) : ref(db, `users/${uid}/packingItems`);
+}
+
+function itemPath(uid, itemId, tripId) {
+  return tripId ? `users/${uid}/tripPackingItems/${tripId}/${itemId}` : `users/${uid}/packingItems/${itemId}`;
 }
 
 export const packingStore = {
-  subscribe(uid, onItems, onError) {
-    return onValue(itemsReference(uid), (snapshot) => {
+  subscribe(uid, onItems, onError, tripId) {
+    return onValue(itemsReference(uid, tripId), (snapshot) => {
       const value = snapshot.val() || {};
       const items = Object.entries(value)
         .map(([id, item]) => ({ ...item, id }))
@@ -25,8 +29,8 @@ export const packingStore = {
     }, onError);
   },
 
-  add(uid, name) {
-    const itemReference = push(itemsReference(uid));
+  add(uid, name, tripId) {
+    const itemReference = push(itemsReference(uid, tripId));
     return set(itemReference, {
       name: name.trim(),
       packed: false,
@@ -36,26 +40,26 @@ export const packingStore = {
     });
   },
 
-  updateName(uid, itemId, name) {
-    return update(ref(db, `users/${uid}/packingItems/${itemId}`), {
+  updateName(uid, itemId, name, tripId) {
+    return update(ref(db, itemPath(uid, itemId, tripId)), {
       name: name.trim(),
       updatedAt: serverTimestamp(),
     });
   },
 
-  setPacked(uid, itemId, packed) {
-    return update(ref(db, `users/${uid}/packingItems/${itemId}`), {
+  setPacked(uid, itemId, packed, tripId) {
+    return update(ref(db, itemPath(uid, itemId, tripId)), {
       packed,
       updatedAt: serverTimestamp(),
     });
   },
 
-  remove(uid, itemId) {
-    return remove(ref(db, `users/${uid}/packingItems/${itemId}`));
+  remove(uid, itemId, tripId) {
+    return remove(ref(db, itemPath(uid, itemId, tripId)));
   },
 
-  reorder(uid, itemIds) {
+  reorder(uid, itemIds, tripId) {
     const updates = Object.fromEntries(itemIds.map((itemId, index) => [`${itemId}/sortOrder`, index]));
-    return update(itemsReference(uid), updates);
+    return update(itemsReference(uid, tripId), updates);
   },
 };

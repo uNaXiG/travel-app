@@ -3,8 +3,10 @@ import { DndContext, KeyboardSensor, MouseSensor, TouchSensor, closestCenter, us
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import ExpensePage from './ExpensePage.jsx';
+import Modal from './Modal.jsx';
 import TravelPlanner, { ParticipantAvatarStack, TravelIdCopyButton } from './TravelPlanner.jsx';
 import { getAirportLabel } from './airports.js';
+import { getDailyLocationOptions } from './locationMapping.js';
 import { travelStore } from '../travelStore.js';
 import { formatTripDateRange, getTripsWithLodging, groupFlightsByTrip, itineraryTypeOptions, toOverviewDays } from './travelUtils.js';
 import {
@@ -15,6 +17,8 @@ import {
   CalendarDays,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ClipboardList,
   Compass,
   ExternalLink,
@@ -37,6 +41,8 @@ import {
   X,
 } from 'lucide-react';
 import './travel.css';
+
+const dailyLocationOptions = getDailyLocationOptions();
 
 const eventTypeIcons = {
   transport: Train,
@@ -177,7 +183,7 @@ function DayCard({ day, isOpen, onToggle, onAddEvent, onUpdateEvent, onDeleteEve
   const [savingEvent, setSavingEvent] = useState(false);
   const [eventError, setEventError] = useState('');
   const [summaryEditing, setSummaryEditing] = useState(false);
-  const [areaDraft, setAreaDraft] = useState(day.area || '');
+  const [locationKeyDraft, setLocationKeyDraft] = useState(day.location?.key || '');
   const [summaryDraft, setSummaryDraft] = useState(day.summary || '');
   const [summarySaving, setSummarySaving] = useState(false);
   const [summaryError, setSummaryError] = useState('');
@@ -189,16 +195,16 @@ function DayCard({ day, isOpen, onToggle, onAddEvent, onUpdateEvent, onDeleteEve
 
   useEffect(() => {
     if (summaryEditing) return;
-    setAreaDraft(day.area || '');
+    setLocationKeyDraft(day.location?.key || '');
     setSummaryDraft(day.summary || '');
-  }, [day.area, day.summary, summaryEditing]);
+  }, [day.location?.key, day.summary, summaryEditing]);
 
   async function saveDayDetails(event) {
     event.preventDefault();
     setSummarySaving(true);
     setSummaryError('');
     try {
-      await onUpdateDetails(day.date, { area: areaDraft, summary: summaryDraft });
+      await onUpdateDetails(day.date, { locationKey: locationKeyDraft, summary: summaryDraft });
       setSummaryEditing(false);
     } catch (error) {
       setSummaryError(error.message || '儲存每日資訊失敗，請稍後再試。');
@@ -208,7 +214,7 @@ function DayCard({ day, isOpen, onToggle, onAddEvent, onUpdateEvent, onDeleteEve
   }
 
   function cancelSummaryEdit() {
-    setAreaDraft(day.area || '');
+    setLocationKeyDraft(day.location?.key || '');
     setSummaryDraft(day.summary || '');
     setSummaryError('');
     setSummaryEditing(false);
@@ -236,7 +242,7 @@ function DayCard({ day, isOpen, onToggle, onAddEvent, onUpdateEvent, onDeleteEve
         <span className="day-index">{String(day.id).padStart(2, '0')}</span>
         <span className="day-title-group">
           <span className="day-date">{day.weekday}　·　{day.date}</span>
-          <span className="day-title-line"><span className="day-title">{day.title}</span>{onUpdateDetails && <button className="day-title-edit-button" type="button" aria-label={`編輯第 ${day.id} 天地點與摘要`} title="編輯每日地點與摘要" onClick={() => { setSummaryError(''); setAreaDraft(day.area || ''); setSummaryDraft(day.summary || ''); setSummaryEditing(true); }}><Pencil size={15} /></button>}</span>
+          <span className="day-title-line"><span className="day-title">{day.title}</span>{onUpdateDetails && <button className="day-title-edit-button" type="button" aria-label={`編輯第 ${day.id} 天地點與摘要`} title="編輯每日地點與摘要" onClick={() => { setSummaryError(''); setLocationKeyDraft(day.location?.key || ''); setSummaryDraft(day.summary || ''); setSummaryEditing(true); }}><Pencil size={15} /></button>}</span>
           <span className="day-area"><MapPin size={12} />{day.area}</span>
         </span>
         <ChevronDown className="day-chevron" size={18} />
@@ -244,7 +250,7 @@ function DayCard({ day, isOpen, onToggle, onAddEvent, onUpdateEvent, onDeleteEve
       {isOpen && (
         <div id={`day-card-body-${day.id}`} className="day-card-body">
           {summaryEditing ? <form className="day-summary-edit-form" onSubmit={saveDayDetails}>
-            <label className="planner-field"><span>第 {day.id} 天主要地點</span><input autoFocus maxLength={100} value={areaDraft} onChange={(event) => setAreaDraft(event.target.value)} placeholder="輸入今天的主要地點" /></label>
+            <label className="planner-field"><span>第 {day.id} 天主要地點</span><select autoFocus value={locationKeyDraft} onChange={(event) => setLocationKeyDraft(event.target.value)}><option value="">請選擇主要地點</option>{dailyLocationOptions.map((location) => <option key={location.key} value={location.key}>{location.displayName}</option>)}</select></label>
             <label className="planner-field"><span>第 {day.id} 天摘要</span><textarea rows={3} maxLength={500} value={summaryDraft} onChange={(event) => setSummaryDraft(event.target.value)} placeholder="單獨記下這一天的重點或安排。" /></label>
             {summaryError && <p className="planner-error" role="alert">{summaryError}</p>}
             <div className="day-summary-actions"><button className="planner-primary" type="submit" disabled={summarySaving}>{summarySaving ? '儲存中…' : <><Check size={15} />儲存每日資訊</>}</button><button className="planner-secondary" type="button" onClick={cancelSummaryEdit} disabled={summarySaving}><ArrowLeft size={15} />取消</button></div>
@@ -277,12 +283,23 @@ function DayCard({ day, isOpen, onToggle, onAddEvent, onUpdateEvent, onDeleteEve
   );
 }
 
+function buildCalendarCells(year, month) {
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const leadingOffset = new Date(year, month, 1).getDay();
+  const cells = Array.from({ length: leadingOffset }, () => null);
+  for (let day = 1; day <= daysInMonth; day += 1) cells.push(new Date(year, month, day, 12));
+  while (cells.length % 7 !== 0) cells.push(null);
+  return cells;
+}
+
 function TripStatusCard({ trip }) {
   const [now, setNow] = useState(Date.now());
   const startDate = new Date(`${trip.startDate}T00:00:00`);
   const endDate = new Date(`${trip.endDate}T00:00:00`);
   const tripStart = startDate.getTime();
   const tripEnd = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 23, 59, 59).getTime();
+  const [viewYear, setViewYear] = useState(startDate.getFullYear());
+  const [viewMonth, setViewMonth] = useState(startDate.getMonth());
   const countdown = Math.max(tripStart - now, 0);
   const days = Math.floor(countdown / 86400000);
   const hours = Math.floor((countdown % 86400000) / 3600000);
@@ -290,18 +307,61 @@ function TripStatusCard({ trip }) {
   const seconds = Math.floor((countdown % 60000) / 1000);
   const isOngoing = now >= tripStart && now <= tripEnd;
   const isFinished = now > tripEnd;
-  const firstDayOffset = new Date(startDate.getFullYear(), startDate.getMonth(), 1).getDay();
-  const calendarDays = Array.from({ length: new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0).getDate() }, (_, index) => index + 1);
+  const calendarCells = buildCalendarCells(viewYear, viewMonth);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    setViewYear(startDate.getFullYear());
+    setViewMonth(startDate.getMonth());
+  }, [trip.id]);
+
+  function goPrevMonth() {
+    setViewYear((year) => (viewMonth === 0 ? year - 1 : year));
+    setViewMonth((month) => (month === 0 ? 11 : month - 1));
+  }
+
+  function goNextMonth() {
+    setViewYear((year) => (viewMonth === 11 ? year + 1 : year));
+    setViewMonth((month) => (month === 11 ? 0 : month + 1));
+  }
+
   return (
     <div className="trip-status-stack" aria-label="旅程日期與倒數">
       <section className="trip-status-card trip-calendar-card">
-        <div className="trip-calendar"><div className="trip-calendar-month">{startDate.getFullYear()} 年 {startDate.getMonth() + 1} 月</div><div className="trip-calendar-weekdays">{['日', '一', '二', '三', '四', '五', '六'].map((weekday) => <span key={weekday}>{weekday}</span>)}</div><div className="trip-calendar-grid">{Array.from({ length: firstDayOffset }, (_, index) => <span className="trip-calendar-empty" key={`empty-${index}`} />)}{calendarDays.map((day) => { const dayTime = new Date(startDate.getFullYear(), startDate.getMonth(), day, 12).getTime(); const isTripDay = dayTime >= tripStart && dayTime <= tripEnd; return <span className={`trip-calendar-day${isTripDay ? ' is-trip-day' : ''}${day === startDate.getDate() ? ' is-trip-start' : ''}${day === endDate.getDate() && startDate.getMonth() === endDate.getMonth() ? ' is-trip-end' : ''}`} key={day}>{day}</span>; })}</div></div>
+        <div className="trip-calendar">
+          <div className="trip-calendar-nav">
+            <button className="trip-calendar-nav-button" type="button" aria-label="上一個月" onClick={goPrevMonth}><ChevronLeft size={14} /></button>
+            <div className="trip-calendar-month">{viewYear} 年 {viewMonth + 1} 月</div>
+            <button className="trip-calendar-nav-button" type="button" aria-label="下一個月" onClick={goNextMonth}><ChevronRight size={14} /></button>
+          </div>
+          <div className="trip-calendar-weekdays">{['日', '一', '二', '三', '四', '五', '六'].map((weekday) => <span key={weekday}>{weekday}</span>)}</div>
+          <div className="trip-calendar-grid">
+            {calendarCells.map((cellDate, index) => {
+              if (!cellDate) return <span className="trip-calendar-empty" key={`empty-${index}`} />;
+              const dayTime = cellDate.getTime();
+              const isTripDay = dayTime >= tripStart && dayTime <= tripEnd;
+              const weekdayIndex = index % 7;
+              const isTripStart = cellDate.getFullYear() === startDate.getFullYear() && cellDate.getMonth() === startDate.getMonth() && cellDate.getDate() === startDate.getDate();
+              const isTripEnd = cellDate.getFullYear() === endDate.getFullYear() && cellDate.getMonth() === endDate.getMonth() && cellDate.getDate() === endDate.getDate();
+              const isFirstDayOfMonth = cellDate.getDate() === 1;
+              const isLastDayOfMonth = cellDate.getDate() === new Date(cellDate.getFullYear(), cellDate.getMonth() + 1, 0).getDate();
+              const roundLeft = isTripDay && (weekdayIndex === 0 || isTripStart || isFirstDayOfMonth);
+              const roundRight = isTripDay && (weekdayIndex === 6 || isTripEnd || isLastDayOfMonth);
+              return (
+                <span
+                  className={`trip-calendar-day${isTripDay ? ' is-trip-day' : ''}${roundLeft ? ' is-trip-start' : ''}${roundRight ? ' is-trip-end' : ''}`}
+                  key={cellDate.toISOString()}
+                >
+                  {cellDate.getDate()}
+                </span>
+              );
+            })}
+          </div>
+        </div>
       </section>
       <section className="trip-status-card trip-countdown-card">
         <div className="trip-countdown">{!isFinished && !isOngoing && <div className="trip-countdown-values"><strong>{String(days).padStart(2, '0')}<small>日</small></strong><i>:</i><strong>{String(hours).padStart(2, '0')}<small>時</small></strong><i>:</i><strong>{String(minutes).padStart(2, '0')}<small>分</small></strong><i>:</i><strong>{String(seconds).padStart(2, '0')}<small>秒</small></strong></div>}</div>
@@ -309,6 +369,7 @@ function TripStatusCard({ trip }) {
     </div>
   );
 }
+
 
 function TripOverview({ trip, onAddEvent, onUpdateEvent, onDeleteEvent, onUpdateDetails, onBack }) {
   const days = toOverviewDays(trip);
@@ -333,7 +394,14 @@ function TripOverview({ trip, onAddEvent, onUpdateEvent, onDeleteEvent, onUpdate
 
   return (
     <>
-      <button className="planner-back" type="button" onClick={onBack}><ArrowLeft size={16} />返回旅程總覽</button>
+      <div className="overview-back-bar">
+        <button className="overview-back-button" type="button" onClick={onBack}>
+          <span className="overview-back-icon-box">
+            <ArrowLeft size={15} />
+          </span>
+          <span className="overview-back-text">返回旅程總覽</span>
+        </button>
+      </div>
       <section className={`trip-hero${trip.coverImage ? ' has-cover' : ''}`}>
         {trip.coverImage && <img className="trip-hero-cover" src={trip.coverImage} alt="" />}
         <div className="trip-hero-copy">
@@ -347,6 +415,10 @@ function TripOverview({ trip, onAddEvent, onUpdateEvent, onDeleteEvent, onUpdate
         </div>
         <div className="trip-hero-participants"><ParticipantAvatarStack participants={Object.values(trip.participants || {})} limit={6} className="participant-stack--hero" /></div>
       </section>
+
+      <div className="trip-status-stack-mobile">
+        <TripStatusCard trip={trip} />
+      </div>
 
       <section className="itinerary-section">
         <div className="section-heading">
@@ -415,34 +487,87 @@ function SortablePackingItem({ item, editing, editValue, setEditValue, setEditin
   );
 }
 
-function PackingListPage({ items, loadState, error, actionError, working, onAdd, onToggle, onUpdate, onRemove, onReorder, clearActionError }) {
+function packingProgress(items) {
+  const packedCount = items.filter((item) => item.packed).length;
+  return items.length ? Math.round((packedCount / items.length) * 100) : 0;
+}
+
+function packingProgressMessage(items, percentage) {
+  return !items.length
+    ? { tone: 'low', text: '清單還沒開始，先加上一項要帶的物品吧。' }
+    : percentage === 0
+      ? { tone: 'low', text: '行李還沒開始準備呢，先從一項開始吧。' }
+      : percentage < 25
+        ? { tone: 'low', text: '清單還有點空，慢慢開始準備吧。' }
+        : percentage < 50
+          ? { tone: 'low', text: '目前只完成一小段，再勾幾項就更有進度了。' }
+          : percentage < 75
+            ? { tone: 'mid', text: '已經一半囉！繼續保持。' }
+            : percentage < 100
+              ? { tone: 'high', text: '快準備完成了，再確認幾項就能安心出發。' }
+              : { tone: 'complete', text: '全部準備好了，安心出發！' };
+}
+
+function PackingTripModal({ trip, user, packingStore, data, onClose }) {
   const [addOpen, setAddOpen] = useState(false);
   const [newItem, setNewItem] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editValue, setEditValue] = useState('');
-  const packedCount = items.filter((item) => item.packed).length;
-  const packingPercentage = items.length ? Math.round((packedCount / items.length) * 100) : 0;
-  const packingMessage = !items.length
-    ? { tone: 'low', text: '清單還沒開始，先加上一項要帶的物品吧。' }
-    : packingPercentage === 0
-      ? { tone: 'low', text: '行李還沒開始準備呢，先從一項開始吧。' }
-      : packingPercentage < 25
-        ? { tone: 'low', text: '清單還有點空，慢慢開始準備吧。' }
-        : packingPercentage < 50
-          ? { tone: 'low', text: '目前只完成一小段，再勾幾項就更有進度了。' }
-          : packingPercentage < 75
-            ? { tone: 'mid', text: '已經一半囉！繼續保持。' }
-            : packingPercentage < 100
-              ? { tone: 'high', text: '快準備完成了，再確認幾項就能安心出發。' }
-              : { tone: 'complete', text: '全部準備好了，安心出發！' };
+  const [working, setWorking] = useState(false);
+  const [actionError, setActionError] = useState('');
+  const items = data?.items || [];
+  const loadState = data?.loadState || 'loading';
+  const loadError = data?.error || '';
+  const packingPercentage = packingProgress(items);
+  const packingMessage = packingProgressMessage(items, packingPercentage);
+
+  async function runPackingAction(action) {
+    setActionError('');
+    setWorking(true);
+    try {
+      await action();
+      return true;
+    } catch (error) {
+      setActionError(isRealtimeDatabasePermissionError(error)
+        ? 'Realtime Database 規則尚未允許此帳號修改清單，請發布 database.rules.json。'
+        : '儲存失敗，請檢查網路後再試。');
+      return false;
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  function addItem(name) {
+    const trimmedName = name.trim();
+    if (!trimmedName) return Promise.resolve(false);
+    return runPackingAction(() => packingStore.add(user.uid, trimmedName, trip.id));
+  }
+
+  function updateItem(itemId, name) {
+    const trimmedName = name.trim();
+    if (!trimmedName) return Promise.resolve(false);
+    return runPackingAction(() => packingStore.updateName(user.uid, itemId, trimmedName, trip.id));
+  }
+
+  function toggleItem(itemId, packed) {
+    return runPackingAction(() => packingStore.setPacked(user.uid, itemId, packed, trip.id));
+  }
+
+  function removeItem(itemId) {
+    return runPackingAction(() => packingStore.remove(user.uid, itemId, trip.id));
+  }
+
+  function reorderItems(itemIds) {
+    return runPackingAction(() => packingStore.reorder(user.uid, itemIds, trip.id));
+  }
 
   async function submitNewItem(event) {
     event.preventDefault();
-    const saved = await onAdd(newItem);
+    const saved = await addItem(newItem);
     if (saved) {
       setNewItem('');
       setAddOpen(false);
-      clearActionError();
+      setActionError('');
     }
   }
 
@@ -457,18 +582,20 @@ function PackingListPage({ items, loadState, error, actionError, working, onAdd,
     const oldIndex = items.findIndex((item) => item.id === active.id);
     const newIndex = items.findIndex((item) => item.id === over.id);
     if (oldIndex < 0 || newIndex < 0) return;
-    onReorder(arrayMove(items, oldIndex, newIndex).map((item) => item.id));
+    reorderItems(arrayMove(items, oldIndex, newIndex).map((item) => item.id));
   }
 
   return (
-    <section className="detail-page packing-page">
-      <div className="page-heading">
-        <p className="section-eyebrow">READY FOR THE JOURNEY</p>
-        <h1>攜帶清單</h1>
-        <p>把出發前要準備的物品收在一起，完成一項就勾選帶了。</p>
-      </div>
-
-      <section className="packing-board" aria-label="個人攜帶清單">
+    <Modal
+      isOpen
+      onClose={onClose}
+      eyebrow={`旅行 ID · ${trip.id}`}
+      title={trip.title}
+      ariaLabelledBy="packing-modal-title"
+      maxWidth="640px"
+      footer={<button className="primary-button" type="button" onClick={onClose}>完成</button>}
+    >
+      <div className="packing-board packing-board-modal" aria-label="個人攜帶清單">
         <header className="packing-board-header">
           <div><p>MY PACKING LIST</p><h2>出發準備</h2></div>
           <div className="packing-count"><strong>{packingPercentage}%</strong><p className={`packing-message packing-message-${packingMessage.tone}`}>{packingMessage.text}</p></div>
@@ -477,7 +604,7 @@ function PackingListPage({ items, loadState, error, actionError, working, onAdd,
           <span style={{ width: `${packingPercentage}%` }} />
         </div>
 
-        {error && <div className="packing-error" role="alert"><AlertTriangle size={16} /><span>{error}</span></div>}
+        {loadError && <div className="packing-error" role="alert"><AlertTriangle size={16} /><span>{loadError}</span></div>}
         {actionError && <div className="packing-error" role="alert"><AlertTriangle size={16} /><span>{actionError}</span></div>}
 
         {loadState === 'loading' ? (
@@ -499,10 +626,10 @@ function PackingListPage({ items, loadState, error, actionError, working, onAdd,
                     setEditValue={setEditValue}
                     setEditingId={setEditingId}
                     working={working}
-                    onToggle={onToggle}
-                    onUpdate={onUpdate}
-                    onRemove={onRemove}
-                    clearActionError={clearActionError}
+                    onToggle={toggleItem}
+                    onUpdate={updateItem}
+                    onRemove={removeItem}
+                    clearActionError={() => setActionError('')}
                   />
                 ))}
               </ul>
@@ -517,11 +644,112 @@ function PackingListPage({ items, loadState, error, actionError, working, onAdd,
             <button className="packing-cancel-add" type="button" onClick={() => { setAddOpen(false); setNewItem(''); }}>取消</button>
           </form>
         ) : (
-          <button className="packing-add-button" type="button" onClick={() => { setAddOpen(true); clearActionError(); }}><Plus size={17} />新增項目</button>
+          <button className="packing-add-button" type="button" onClick={() => { setAddOpen(true); setActionError(''); }}><Plus size={17} />新增項目</button>
         )}
-      </section>
+      </div>
+    </Modal>
+  );
+}
+
+function PackingListPage({ user, packingStore, trips }) {
+  const [tripPackingData, setTripPackingData] = useState({});
+  const [selectedTripId, setSelectedTripId] = useState(null);
+  const tripIdsKey = trips.map(({ id }) => id).join('|');
+
+  useEffect(() => {
+    const tripIds = tripIdsKey ? tripIdsKey.split('|') : [];
+    let active = true;
+    const unsubscribers = [];
+    setTripPackingData(Object.fromEntries(tripIds.map((tripId) => [tripId, { items: [], loadState: 'loading', error: '' }])));
+
+    function updateTripData(tripId, changes) {
+      if (!active) return;
+      setTripPackingData((current) => ({
+        ...current,
+        [tripId]: { ...current[tripId], ...changes },
+      }));
+    }
+
+    tripIds.forEach((tripId) => {
+      try {
+        unsubscribers.push(packingStore.subscribe(user.uid, (items) => updateTripData(tripId, { items, loadState: 'ready', error: '' }), (error) => updateTripData(tripId, {
+          loadState: 'error',
+          error: isRealtimeDatabasePermissionError(error)
+            ? 'Realtime Database 規則尚未允許讀取此旅行的攜帶清單，請發布 database.rules.json。'
+            : '無法讀取攜帶清單，請檢查網路連線或 Realtime Database 設定。',
+        }), tripId));
+      } catch (error) {
+        updateTripData(tripId, { loadState: 'error', error: error.message || 'Firebase Realtime Database 尚未設定，無法載入攜帶清單。' });
+      }
+    });
+
+    return () => {
+      active = false;
+      unsubscribers.forEach((unsubscribe) => unsubscribe());
+    };
+  }, [packingStore, user.uid, tripIdsKey]);
+
+  const selectedTrip = trips.find(({ id }) => id === selectedTripId) || null;
+
+  return (
+    <section className="detail-page packing-page">
+      <div className="page-heading">
+        <p className="section-eyebrow">READY FOR THE JOURNEY</p>
+        <h1>攜帶清單</h1>
+        <p>依照旅行分開整理行李，完成一項就勾選帶了。</p>
+      </div>
+
+      {trips.length === 0 ? (
+        <div className="packing-empty"><span className="packing-empty-icon"><MapPin size={20} /></span><strong>還沒有旅行</strong><p>先建立或加入一趟旅行，才能開始準備攜帶清單。</p></div>
+      ) : (
+        <div className="packing-trip-list">
+          {trips.map((trip) => {
+            const data = tripPackingData[trip.id];
+            const items = data?.items || [];
+            const isLoading = !data || data.loadState === 'loading';
+            const hasError = data?.loadState === 'error';
+            const percentage = packingProgress(items);
+            const tone = percentage === 100 ? 'complete' : percentage >= 50 ? 'high' : percentage > 0 ? 'mid' : 'low';
+            return (
+              <button
+                key={trip.id}
+                className="trip-summary-row packing-summary-row"
+                type="button"
+                onClick={() => setSelectedTripId(trip.id)}
+                aria-label={`開啟${trip.title}的攜帶清單${isLoading ? '' : `，完成進度 ${percentage}%`}`}
+              >
+                <span className="trip-summary-icon"><ClipboardList size={18} /></span>
+                <span className="trip-summary-main"><strong>{trip.title}</strong><small>旅行 ID · {trip.id}</small></span>
+                <span className="packing-summary-progress">
+                  {isLoading ? (
+                    <small className="packing-summary-progress-loading">讀取中…</small>
+                  ) : hasError ? (
+                    <small className="packing-summary-progress-error"><AlertTriangle size={12} />無法讀取</small>
+                  ) : (
+                    <>
+                      <strong className={`packing-summary-progress-value is-${tone}`}>{percentage}%</strong>
+                      <span className="packing-summary-progress-track"><span className={`is-${tone}`} style={{ width: `${percentage}%` }} /></span>
+                      <small>完成進度</small>
+                    </>
+                  )}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <aside className="packing-privacy-note"><Info size={15} /><span>清單只會存取目前登入帳號的資料，其他使用者無法讀取。</span></aside>
+
+      {selectedTrip && (
+        <PackingTripModal
+          trip={selectedTrip}
+          user={user}
+          packingStore={packingStore}
+          data={tripPackingData[selectedTrip.id]}
+          onClose={() => setSelectedTripId(null)}
+        />
+      )}
     </section>
   );
 }
@@ -634,11 +862,6 @@ export default function TravelHome({ user, onSignOut, packingStore, expenseStore
   const [travelError, setTravelError] = useState('');
   const [travelWorking, setTravelWorking] = useState(false);
   const [activeTravelId, setActiveTravelId] = useState(null);
-  const [packingItems, setPackingItems] = useState([]);
-  const [packingLoadState, setPackingLoadState] = useState('loading');
-  const [packingError, setPackingError] = useState('');
-  const [packingActionError, setPackingActionError] = useState('');
-  const [packingWorking, setPackingWorking] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef(null);
@@ -693,73 +916,6 @@ export default function TravelHome({ user, onSignOut, packingStore, expenseStore
       unsubscribe();
     };
   }, [user.uid]);
-
-  useEffect(() => {
-    let active = true;
-    let unsubscribe = () => { };
-    setPackingLoadState('loading');
-    setPackingError('');
-    try {
-      unsubscribe = packingStore.subscribe(user.uid, (items) => {
-        if (!active) return;
-        setPackingItems(items);
-        setPackingLoadState('ready');
-      }, (error) => {
-        if (!active) return;
-        setPackingLoadState('error');
-        setPackingError(isRealtimeDatabasePermissionError(error)
-          ? 'Realtime Database 規則尚未允許此帳號讀取清單，請發布 database.rules.json。'
-          : '無法載入清單，請檢查網路連線或 Realtime Database 設定。');
-      });
-    } catch (error) {
-      setPackingLoadState('error');
-      setPackingError(error.message || 'Firebase Realtime Database 尚未設定，無法載入攜帶清單。');
-    }
-    return () => {
-      active = false;
-      unsubscribe();
-    };
-  }, [user.uid]);
-
-  async function runPackingAction(action) {
-    setPackingActionError('');
-    setPackingWorking(true);
-    try {
-      await action();
-      return true;
-    } catch (error) {
-      setPackingActionError(isRealtimeDatabasePermissionError(error)
-        ? 'Realtime Database 規則尚未允許此帳號修改清單，請發布 database.rules.json。'
-        : '儲存失敗，請檢查網路後再試。');
-      return false;
-    } finally {
-      setPackingWorking(false);
-    }
-  }
-
-  function addPackingItem(name) {
-    const trimmedName = name.trim();
-    if (!trimmedName) return Promise.resolve(false);
-    return runPackingAction(() => packingStore.add(user.uid, trimmedName));
-  }
-
-  function updatePackingItem(itemId, name) {
-    const trimmedName = name.trim();
-    if (!trimmedName) return Promise.resolve(false);
-    return runPackingAction(() => packingStore.updateName(user.uid, itemId, trimmedName));
-  }
-
-  function togglePackingItem(itemId, packed) {
-    return runPackingAction(() => packingStore.setPacked(user.uid, itemId, packed));
-  }
-
-  function removePackingItem(itemId) {
-    return runPackingAction(() => packingStore.remove(user.uid, itemId));
-  }
-
-  function reorderPackingItems(itemIds) {
-    return runPackingAction(() => packingStore.reorder(user.uid, itemIds));
-  }
 
   async function runTravelAction(action) {
     setTravelError('');
@@ -889,7 +1045,7 @@ export default function TravelHome({ user, onSignOut, packingStore, expenseStore
           {section === 'transport' && <TransportationPage trips={travelItems} />}
           {section === 'lodging' && <LodgingPage trips={travelItems} />}
           {section === 'expenses' && <ExpensePage user={user} expenseStore={expenseStore} trips={travelItems} />}
-          {section === 'packing' && <PackingListPage items={packingItems} loadState={packingLoadState} error={packingError} actionError={packingActionError} working={packingWorking} onAdd={addPackingItem} onToggle={togglePackingItem} onUpdate={updatePackingItem} onRemove={removePackingItem} onReorder={reorderPackingItems} clearActionError={() => setPackingActionError('')} />}
+          {section === 'packing' && <PackingListPage user={user} packingStore={packingStore} trips={travelItems} />}
         </main>
       </div>
 
