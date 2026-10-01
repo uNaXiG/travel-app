@@ -3902,6 +3902,26 @@
   background: rgba(76, 145, 87, .34);
 }
 
+.expense-icon-action-join {
+  color: #a8d3bd;
+  background: rgba(83, 139, 111, .17);
+}
+
+.expense-icon-action-join:hover:not(:disabled) {
+  color: #d2f0df;
+  background: rgba(83, 139, 111, .35);
+}
+
+.expense-icon-action-leave {
+  color: #dbab92;
+  background: rgba(152, 91, 69, .16);
+}
+
+.expense-icon-action-leave:hover:not(:disabled) {
+  color: #f0c8b1;
+  background: rgba(152, 91, 69, .32);
+}
+
 .expense-icon-action-lock {
   color: #e5c48e;
   background: rgba(208, 170, 115, .16);

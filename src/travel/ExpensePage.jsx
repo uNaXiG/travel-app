@@ -483,9 +483,9 @@ function SharedExpenseCard({ expense, user, onJoin, onLeave, onEdit, onRemove, o
                         </span>
                     )}
                 </div>
-                {isOwner && (
+                {(isOwner || !expense.locked) && (
                     <div className="expense-card-owner-actions">
-                        <button
+                        {isOwner && <button
                             className="expense-icon-action"
                             type="button"
                             aria-label="編輯公帳"
@@ -494,7 +494,9 @@ function SharedExpenseCard({ expense, user, onJoin, onLeave, onEdit, onRemove, o
                             disabled={working || expense.locked}
                         >
                             <Pencil size={15} />
-                        </button>
+                        </button>}
+                        {!isOwner && !currentParticipant && !expense.locked && <button className="expense-icon-action expense-icon-action-join" type="button" aria-label="加入分帳" title="加入分帳" onClick={onJoin} disabled={working}><UserPlus size={15} /></button>}
+                        {!isOwner && currentParticipant && !expense.locked && <button className="expense-icon-action expense-icon-action-leave" type="button" aria-label="退出分帳" title="退出分帳" onClick={onLeave} disabled={working}><UserMinus size={15} /></button>}
                         {isOwner && firstUnsettled && (
                             <button
                                 className="expense-icon-action expense-icon-action-settle"
@@ -507,7 +509,7 @@ function SharedExpenseCard({ expense, user, onJoin, onLeave, onEdit, onRemove, o
                                 <BadgeCheck size={16} />
                             </button>
                         )}
-                        {!expense.locked && (
+                        {isOwner && !expense.locked && (
                             <button
                                 className="expense-icon-action expense-icon-action-lock"
                                 type="button"
@@ -519,7 +521,7 @@ function SharedExpenseCard({ expense, user, onJoin, onLeave, onEdit, onRemove, o
                                 <Lock size={15} />
                             </button>
                         )}
-                        <button
+                        {isOwner && <button
                             className="expense-icon-action expense-icon-action-danger"
                             type="button"
                             aria-label="刪除公帳"
@@ -528,7 +530,7 @@ function SharedExpenseCard({ expense, user, onJoin, onLeave, onEdit, onRemove, o
                             disabled={working || expense.locked}
                         >
                             <Trash2 size={15} />
-                        </button>
+                        </button>}
                     </div>
                 )}
             </div>
@@ -580,31 +582,8 @@ function SharedExpenseCard({ expense, user, onJoin, onLeave, onEdit, onRemove, o
                     </div>
                 </div>
                 <div className="expense-card-actions">
-                    {/* 非參與者：若已鎖定則禁止加入，否則可加入分帳 */}
-                    {!currentParticipant && (
-                        expense.locked ? (
-                            <span className="expense-locked-hint">
-                                <Lock size={13} />此公帳已鎖定，無法加入分帳
-                            </span>
-                        ) : (
-                            <button className="secondary-button" type="button" onClick={onJoin} disabled={working}>
-                                <UserPlus size={15} />加入分帳
-                            </button>
-                        )
-                    )}
-
-                    {/* 參與者（非建立者）：若未鎖定可退出，已鎖定則不可退出 */}
-                    {currentParticipant && !isOwner && (
-                        expense.locked ? (
-                            <span className="expense-locked-status-tag">
-                                <Lock size={13} />分帳已鎖定
-                            </span>
-                        ) : (
-                            <button className="secondary-button" type="button" onClick={onLeave} disabled={working}>
-                                <UserMinus size={15} />退出分帳
-                            </button>
-                        )
-                    )}
+                    {!currentParticipant && expense.locked && <span className="expense-locked-hint"><Lock size={13} />此公帳已鎖定，無法加入分帳</span>}
+                    {currentParticipant && !isOwner && expense.locked && <span className="expense-locked-status-tag"><Lock size={13} />分帳已鎖定</span>}
                 </div>
                 <span className="expense-date">{formatDate(expense.createdAt)}</span>
             </div>
