@@ -52,6 +52,24 @@ function hasText(value) {
   return value !== null && value !== undefined && String(value).trim().length > 0;
 }
 
+function itineraryStartTime(event) {
+  const startTime = typeof event.startTime === 'string' ? event.startTime : '';
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(startTime) ? startTime : '';
+}
+
+export function sortItineraryEvents(events) {
+  return events.map((event, index) => ({ event, index }))
+    .sort((first, second) => {
+      const firstTime = itineraryStartTime(first.event);
+      const secondTime = itineraryStartTime(second.event);
+      if (firstTime && secondTime) return firstTime.localeCompare(secondTime) || first.index - second.index;
+      if (firstTime) return -1;
+      if (secondTime) return 1;
+      return first.index - second.index;
+    })
+    .map(({ event }) => event);
+}
+
 export function groupFlightsByTrip(trips) {
   const flightFields = ['airline', 'departureAirport', 'arrivalAirport', 'date', 'fare', 'route', 'departure', 'arrival'];
   return trips.map((trip) => ({
@@ -98,7 +116,7 @@ export function toOverviewDays(trip) {
       title: `第 ${day.day} 天`,
       summary: storedDay?.summary || '',
       guide: storedDay?.guide || '',
-      events: Object.entries(storedDay?.events || {}).map(([id, event]) => {
+      events: sortItineraryEvents(Object.entries(storedDay?.events || {}).map(([id, event]) => {
         const type = itineraryTypeOptions.some((option) => option.value === event.type) ? event.type : 'sight';
         const category = itineraryTypeOptions.find((option) => option.value === type).label;
         return {
@@ -109,7 +127,7 @@ export function toOverviewDays(trip) {
           time: [event.startTime, event.endTime].filter(Boolean).join('–') || '時間未定',
           location: event.address || '',
         };
-      }),
+      })),
     };
   });
 }

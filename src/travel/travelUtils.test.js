@@ -65,6 +65,37 @@ test('trip display helpers format date ranges and stored itinerary events', () =
   assert.equal(fallbackDay.area, '日本');
 });
 
+test('itinerary events sort by start time with stable untimed ordering per day', () => {
+  const days = toOverviewDays({
+    startDate: '2026-10-22',
+    endDate: '2026-10-23',
+    country: '日本',
+    itinerary: {
+      '2026-10-22': {
+        events: {
+          late: { title: '晚餐', startTime: '18:00' },
+          sameTimeFirst: { title: '同時段 A', startTime: '14:00' },
+          untimedFirst: { title: '未定 A' },
+          early: { title: '景點 B', startTime: '10:00' },
+          sameTimeSecond: { title: '同時段 B', startTime: '14:00' },
+          untimedSecond: { title: '未定 B' },
+        },
+      },
+      '2026-10-23': {
+        events: {
+          nextDayLate: { title: '隔日晚上', startTime: '20:00' },
+          nextDayEarly: { title: '隔日早上', startTime: '08:00' },
+        },
+      },
+    },
+  });
+
+  assert.deepEqual(days[0].events.map(({ id }) => id), [
+    'early', 'sameTimeFirst', 'sameTimeSecond', 'late', 'untimedFirst', 'untimedSecond',
+  ]);
+  assert.deepEqual(days[1].events.map(({ id }) => id), ['nextDayEarly', 'nextDayLate']);
+});
+
 test('transport and lodging records stay grouped under their own trips', () => {
   const trips = [
     { id: 'trip-a', title: '大阪', flights: [{ airline: 'A航空', departureAirport: 'TPE', arrivalAirport: 'KIX' }], lodging: [{ name: '大阪飯店' }, { name: '京都旅館' }] },

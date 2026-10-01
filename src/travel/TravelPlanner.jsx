@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, BedDouble, CalendarDays, Check, CirclePlus, Copy, ImagePlus, MapPin, Pencil, Plane, Plus, Trash2, Users, X } from 'lucide-react';
 import { airports, getAirportLabel } from './airports.js';
 import { readImageFileAsDataUrl } from './imageUtils.js';
-import { buildTripDays, formatTripDateRange, isTripOwner, itineraryTypeOptions } from './travelUtils.js';
+import { buildTripDays, formatTripDateRange, isTripOwner, itineraryTypeOptions, sortItineraryEvents } from './travelUtils.js';
 import './travelPlanner.css';
 
 function formItemId(kind) {
@@ -237,7 +237,7 @@ export default function TravelPlanner({ uid, trips, loadState, error, working, o
     }
   }, [trip.startDate, trip.endDate]);
   const selectedDay = days.find((day) => day.date === selectedDate) || days[0];
-  const selectedEvents = selectedDay ? itinerary[selectedDay.date] || [] : [];
+  const selectedEvents = selectedDay ? sortItineraryEvents(itinerary[selectedDay.date] || []) : [];
 
   function updateTripField(field, value) {
     setTrip((current) => ({ ...current, [field]: value }));
@@ -580,7 +580,7 @@ export default function TravelPlanner({ uid, trips, loadState, error, working, o
             <h3>{joinPreview.title}</h3>
             <dl><div><dt>建立者</dt><dd>{joinPreview.participants?.[joinPreview.ownerId]?.name || '旅程建立者'}</dd></div><div><dt>旅行日期</dt><dd>{formatTripDateRange(joinPreview.startDate, joinPreview.endDate) || '尚未設定'}</dd></div><div><dt>參與人數</dt><dd>{Object.keys(joinPreview.participants || {}).length} 人</dd></div></dl>
             {joinPreview.description && <p className="planner-trip-preview-description">{joinPreview.description}</p>}
-            <footer><button className="planner-secondary" type="button" onClick={closeJoinDialog}>取消</button><button className="planner-primary" type="button" onClick={submitJoin} disabled={working}>{working ? '加入中…' : <>確認加入 <ArrowRight size={15} /></>}</button></footer>
+            <footer><button className="planner-primary" type="button" onClick={submitJoin} disabled={working}>{working ? '加入中…' : <>確認加入 <ArrowRight size={15} /></>}</button></footer>
           </div>}
         </section>
       </div>}

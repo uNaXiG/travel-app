@@ -54,6 +54,24 @@ function searchUrl(query) {
   return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
 }
 
+function tripSummaryDateRange(trip) {
+  const startDate = trip.startDate ? trip.startDate.replaceAll('-', '/') : '日期未設定';
+  const endDate = trip.endDate ? trip.endDate.replaceAll('-', '/') : '日期未設定';
+  return `${startDate}～${endDate}`;
+}
+
+function TripSummaryRow({ trip, icon: Icon, countLabel, isExpanded, onToggle }) {
+  return (
+    <button className={`trip-summary-row${isExpanded ? ' is-expanded' : ''}`} type="button" onClick={onToggle} aria-expanded={isExpanded} aria-controls={`trip-details-${trip.id}`}>
+      <span className="trip-summary-icon"><Icon size={18} /></span>
+      <span className="trip-summary-main"><strong>{trip.title}</strong><small>旅行 ID · {trip.id}</small></span>
+      <span className="trip-summary-dates">{tripSummaryDateRange(trip)}</span>
+      <span className="trip-summary-count">{countLabel}</span>
+      <ChevronDown className="trip-summary-chevron" size={18} />
+    </button>
+  );
+}
+
 function isRealtimeDatabasePermissionError(error) {
   return error.code === 'PERMISSION_DENIED'
     || error.code === 'permission-denied'
@@ -509,31 +527,41 @@ function PackingListPage({ items, loadState, error, actionError, working, onAdd,
 }
 
 function TransportationPage({ trips }) {
+  const [expandedTripId, setExpandedTripId] = useState(null);
   const flightGroups = groupFlightsByTrip(trips);
   return (
     <section className="detail-page">
       <div className="page-heading"><p className="section-eyebrow">GETTING AROUND</p><h1>交通資訊</h1></div>
       {flightGroups.length ? flightGroups.map(({ trip, flights }) => (
-        <section className="transport-group" key={trip.id}>
-          <header className="transport-section-heading">
-            <span className="transport-section-icon"><Plane size={18} /></span>
-            <div><p>FLIGHT DETAILS · {trip.country}</p><h2>{trip.title}</h2></div>
-            <span className="transport-section-side">{trip.id}</span>
-          </header>
-          <div className="flight-list">
-            {flights.map((flight, index) => (
-              <article className="flight-card" key={`${trip.id}-${flight.formId || flight.direction || index}`}>
-                <div className="flight-card-top"><span className="flight-direction">{flight.direction || `航班 ${index + 1}`}</span><span>{flight.date}</span></div>
-                <div className="flight-airline"><span className="flight-icon"><Plane size={18} /></span><strong>{flight.airline || '未填寫航空公司'}</strong></div>
-                <div className="flight-route">
-                  <div><span>出發機場</span><strong className="flight-airport-name">{flight.departureAirport ? getAirportLabel(flight.departureAirport) : flight.route?.split(/→|->/)[0]?.trim() || '未設定'}</strong>{(flight.departureTime || (!flight.departureAirport && flight.departure)) && <small className="flight-time">{flight.departureTime || flight.departure}</small>}</div>
-                  <div className="flight-route-line"><i><Plane size={15} /></i></div>
-                  <div><span>目的地機場</span><strong className="flight-airport-name">{flight.arrivalAirport ? getAirportLabel(flight.arrivalAirport) : flight.route?.split(/→|->/)[1]?.trim() || '未設定'}</strong>{(flight.arrivalTime || (!flight.arrivalAirport && flight.arrival)) && <small className="flight-time">{flight.arrivalTime || flight.arrival}</small>}</div>
-                </div>
-                {flight.fare && <div className="flight-fare"><span>每人票價</span><strong>NT$ {new Intl.NumberFormat('zh-TW').format(Number(String(flight.fare).replace(/,/g, '')))}<small> / 人</small></strong></div>}
-              </article>
-            ))}
-          </div>
+        <section className="transport-group trip-disclosure" key={trip.id}>
+          <TripSummaryRow trip={trip} icon={Plane} countLabel={`${flights.length} 張機票`} isExpanded={expandedTripId === trip.id} onToggle={() => setExpandedTripId((current) => current === trip.id ? null : trip.id)} />
+          {expandedTripId === trip.id && <div className="trip-disclosure-details" id={`trip-details-${trip.id}`}>
+            <header className="transport-section-heading">
+              <span className="transport-section-icon"><Plane size={18} /></span>
+              <div><p>FLIGHT DETAILS · {trip.country}</p><h2>{trip.title}</h2></div>
+              <span className="transport-section-side">{trip.id}</span>
+            </header>
+            <div className="flight-list">
+              {flights.map((flight, index) => {
+                const dateParts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(flight.date || '');
+                return (
+                  <article className="flight-card" key={`${trip.id}-${flight.formId || flight.direction || index}`}>
+                    <div className="flight-card-top">
+                      <span className="flight-direction">{flight.direction || `航班 ${index + 1}`}</span>
+                      <time className="flight-date" dateTime={dateParts ? flight.date : undefined}><span>{dateParts?.[1] || '日期'}</span><strong>{dateParts ? `${dateParts[2]}.${dateParts[3]}` : '未設定'}</strong></time>
+                    </div>
+                    <div className="flight-airline"><span className="flight-icon"><Plane size={18} /></span><strong>{flight.airline || '未填寫航空公司'}</strong></div>
+                    <div className="flight-route">
+                      <div><span>出發機場</span><strong className="flight-airport-name">{flight.departureAirport ? getAirportLabel(flight.departureAirport) : flight.route?.split(/→|->/)[0]?.trim() || '未設定'}</strong>{(flight.departureTime || (!flight.departureAirport && flight.departure)) && <time className="flight-time">{flight.departureTime || flight.departure}</time>}</div>
+                      <div className="flight-route-line"><i><Plane size={15} /></i></div>
+                      <div><span>目的地機場</span><strong className="flight-airport-name">{flight.arrivalAirport ? getAirportLabel(flight.arrivalAirport) : flight.route?.split(/→|->/)[1]?.trim() || '未設定'}</strong>{(flight.arrivalTime || (!flight.arrivalAirport && flight.arrival)) && <time className="flight-time">{flight.arrivalTime || flight.arrival}</time>}</div>
+                    </div>
+                    {flight.fare && <div className="flight-fare"><span>每人票價</span><strong>NT$ {new Intl.NumberFormat('zh-TW').format(Number(String(flight.fare).replace(/,/g, '')))}<small> / 人</small></strong></div>}
+                  </article>
+                );
+              })}
+            </div>
+          </div>}
         </section>
       )) : <p className="trip-info-empty">{trips.length ? '你的旅程尚未填寫機票資訊。' : '目前沒有可顯示的旅行。'}</p>}
     </section>
@@ -541,34 +569,47 @@ function TransportationPage({ trips }) {
 }
 
 function LodgingPage({ trips }) {
-  const lodgingTrips = getTripsWithLodging(trips);
+  const [expandedTripId, setExpandedTripId] = useState(null);
+  const lodgingGroups = new Map();
+  getTripsWithLodging(trips).forEach((record) => {
+    const group = lodgingGroups.get(record.trip.id) || { trip: record.trip, lodgings: [] };
+    group.lodgings.push(record);
+    lodgingGroups.set(record.trip.id, group);
+  });
   return (
     <section className="detail-page">
       <div className="page-heading"><p className="section-eyebrow">ACCOMMODATION</p><h1>住宿資訊</h1></div>
-      {lodgingTrips.length ? lodgingTrips.map(({ trip, lodging, index }) => {
-        const nights = lodging.checkIn && lodging.checkOut
-          ? `${Math.max(Math.round((new Date(`${lodging.checkOut}T00:00:00`) - new Date(`${lodging.checkIn}T00:00:00`)) / 86400000), 0)} 晚`
-          : '尚未設定';
-        return (
-          <section className="transport-group lodging-trip-group" key={`${trip.id}-${lodging.formId || index}`}>
+      {lodgingGroups.size ? [...lodgingGroups.values()].map(({ trip, lodgings }) => (
+        <section className="transport-group lodging-trip-group trip-disclosure" key={trip.id}>
+          <TripSummaryRow trip={trip} icon={BedDouble} countLabel={`${lodgings.length} 間住宿`} isExpanded={expandedTripId === trip.id} onToggle={() => setExpandedTripId((current) => current === trip.id ? null : trip.id)} />
+          {expandedTripId === trip.id && <div className="trip-disclosure-details" id={`trip-details-${trip.id}`}>
             <header className="transport-section-heading">
               <span className="transport-section-icon"><BedDouble size={18} /></span>
-              <div><p>ACCOMMODATION · {trip.country}</p><h2>{trip.title} · 住宿 {index + 1}</h2></div>
+              <div><p>ACCOMMODATION · {trip.country}</p><h2>{trip.title}</h2></div>
               <span className="transport-section-side">{trip.id}</span>
             </header>
-            <article className="lodging-card">
-              {lodging.coverImage ? <img className="lodging-visual lodging-custom-cover" src={lodging.coverImage} alt={`${lodging.name || '住宿'}封面`} /> : <div className="lodging-visual" aria-hidden="true" />}
-              <div className="lodging-body">
-                <div className="lodging-kicker"><BedDouble size={15} /> ACCOMMODATION</div>
-                <h2>{lodging.name || '住宿資訊'}</h2>
-                {lodging.address && <a className="lodging-address" href={mapsUrl(lodging.address)} target="_blank" rel="noreferrer"><MapPin size={16} /><span>{lodging.address}</span><ExternalLink size={14} /></a>}
-                {(lodging.note || lodging.checkIn || lodging.checkOut) && <p className="lodging-note">{lodging.note || `${lodging.checkIn || ''}${lodging.checkOut ? ` 至 ${lodging.checkOut}` : ''}`}</p>}
-                <div className="lodging-facts"><div><span>入住日期</span><strong>{lodging.checkIn || '尚未設定'}</strong></div><div><span>退房日期</span><strong>{lodging.checkOut || '尚未設定'}</strong></div><div><span>住宿晚數</span><strong>{nights}</strong></div>{lodging.price && <div className="lodging-price-fact"><span>住宿金額</span><strong>NT$ {new Intl.NumberFormat('zh-TW').format(Number(String(lodging.price).replace(/[^0-9]/g, '')))}</strong></div>}</div>
-              </div>
-            </article>
-          </section>
-        );
-      }) : <p className="trip-info-empty">{trips.length ? '你的旅程尚未填寫住宿資訊。' : '目前沒有可顯示的旅行。'}</p>}
+            <div className="lodging-card-list">
+              {lodgings.map(({ lodging, index }) => {
+                const nights = lodging.checkIn && lodging.checkOut
+                  ? `${Math.max(Math.round((new Date(`${lodging.checkOut}T00:00:00`) - new Date(`${lodging.checkIn}T00:00:00`)) / 86400000), 0)} 晚`
+                  : '尚未設定';
+                return (
+                  <article className="lodging-card" key={`${trip.id}-${lodging.formId || index}`}>
+                    {lodging.coverImage ? <img className="lodging-visual lodging-custom-cover" src={lodging.coverImage} alt={`${lodging.name || '住宿'}封面`} /> : <div className="lodging-visual" aria-hidden="true" />}
+                    <div className="lodging-body">
+                      <div className="lodging-kicker"><BedDouble size={15} /> ACCOMMODATION</div>
+                      <h2>{lodging.name || '住宿資訊'}</h2>
+                      {lodging.address && <a className="lodging-address" href={mapsUrl(lodging.address)} target="_blank" rel="noreferrer"><MapPin size={16} /><span>{lodging.address}</span><ExternalLink size={14} /></a>}
+                      {(lodging.note || lodging.checkIn || lodging.checkOut) && <p className="lodging-note">{lodging.note || `${lodging.checkIn || ''}${lodging.checkOut ? ` 至 ${lodging.checkOut}` : ''}`}</p>}
+                      <div className="lodging-facts"><div><span>入住日期</span><strong>{lodging.checkIn || '尚未設定'}</strong></div><div><span>退房日期</span><strong>{lodging.checkOut || '尚未設定'}</strong></div><div><span>住宿晚數</span><strong>{nights}</strong></div>{lodging.price && <div className="lodging-price-fact"><span>住宿金額</span><strong>NT$ {new Intl.NumberFormat('zh-TW').format(Number(String(lodging.price).replace(/[^0-9]/g, '')))}</strong></div>}</div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </div>}
+        </section>
+      )) : <p className="trip-info-empty">{trips.length ? '你的旅程尚未填寫住宿資訊。' : '目前沒有可顯示的旅行。'}</p>}
     </section>
   );
 }
