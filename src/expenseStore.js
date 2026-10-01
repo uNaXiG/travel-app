@@ -77,6 +77,13 @@ export const expenseStore = {
         return remove(expenseReference(`trips/${tripId}/sharedExpenses/${expenseId}`));
     },
 
+    lockShared(tripId, expenseId) {
+        return update(expenseReference(`trips/${tripId}/sharedExpenses/${expenseId}`), {
+            locked: true,
+            lockedAt: serverTimestamp(),
+        });
+    },
+
     joinShared(tripId, expenseId, uid, participant) {
         return set(expenseReference(`trips/${tripId}/sharedExpenses/${expenseId}/participants/${uid}`), {
             uid,

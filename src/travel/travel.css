@@ -5259,3 +5259,571 @@
     font-size: 17px;
   }
 }
+
+/* --------------------------------------------------------------------------
+   共用 Modal 元件樣式 (符合手機適配、內滾動、禁止外部點擊關閉、防鍵盤遮擋)
+   -------------------------------------------------------------------------- */
+.travel-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 16px;
+  background: rgba(5, 9, 12, 0.82);
+  backdrop-filter: blur(6px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.travel-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(500px, 100%);
+  max-height: min(640px, calc(100dvh - 32px));
+  min-height: 0;
+  margin: auto;
+  border: 1px solid #46534e;
+  border-radius: 12px;
+  background: #172024;
+  color: #edf0ef;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.65);
+  overflow: hidden;
+  animation: travel-modal-enter 180ms ease-out;
+}
+
+@keyframes travel-modal-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.travel-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 15px 18px;
+  border-bottom: 1px solid #303c40;
+  background: #1a2529;
+  flex: 0 0 auto;
+}
+
+.travel-modal-header>div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.travel-modal-eyebrow {
+  margin: 0;
+  color: #d0aa73;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+
+.travel-modal-title {
+  margin: 0;
+  color: #f0f1ed;
+  font-size: 18px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.travel-modal-close {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #46534e;
+  border-radius: 7px;
+  color: #dce4e2;
+  background: #232f34;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.travel-modal-close:hover {
+  border-color: #d0aa73;
+  color: #f1d9af;
+  background: #2c3b42;
+}
+
+.travel-modal-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 18px 20px;
+  scrollbar-color: #59665f #151d21;
+  -webkit-overflow-scrolling: touch;
+}
+
+.travel-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid #2d383c;
+  background: #151d21;
+  flex: 0 0 auto;
+}
+
+/* 標記結清 Modal 專屬樣式 */
+.expense-settle-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.expense-settle-target-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #1c262b;
+  border: 1px solid #324046;
+}
+
+.expense-settle-target-info>div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.expense-settle-target-info strong {
+  color: #f0f1ed;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.expense-settle-target-info span {
+  color: #9cb1b5;
+  font-size: 12px;
+}
+
+.expense-settle-target-total {
+  color: #e5c48e;
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.expense-settle-user-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 9px;
+  background: #212c32;
+  border: 1px solid #3c4b51;
+}
+
+.expense-settle-user-avatar {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  flex: 0 0 50px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #d0aa73;
+  color: #172024;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.expense-settle-user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.expense-settle-user-details {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.expense-settle-user-topline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.expense-settle-user-topline strong {
+  color: #f3efe6;
+  font-size: 15px;
+}
+
+.expense-settle-role-tag {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 4px;
+  background: #2f3e46;
+  color: #cdd8db;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.expense-settle-role-tag.is-payer {
+  background: #503d21;
+  color: #eed5a7;
+  border: 1px solid #735932;
+}
+
+.expense-settle-user-details small {
+  color: #8fa0a5;
+  font-size: 11px;
+}
+
+.expense-settle-amounts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.expense-settle-amount-box {
+  display: grid;
+  gap: 4px;
+  padding: 11px 13px;
+  border-radius: 8px;
+  background: #1b2428;
+  border: 1px solid #2d3a3f;
+}
+
+.expense-settle-amount-box span {
+  color: #9cb1b5;
+  font-size: 11px;
+}
+
+.expense-settle-amount-box strong {
+  color: #f0f1ed;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.expense-settle-status-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.expense-settle-status-tag.is-settled {
+  color: #6ed17c;
+}
+
+.expense-settle-status-tag.is-unsettled {
+  color: #e66861;
+}
+
+.expense-settle-prompt-box {
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #1c2727;
+  border: 1px solid #394d48;
+  color: #c9ded8;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.expense-settle-permission-hint {
+  padding: 10px 12px;
+  border-radius: 7px;
+  background: #252219;
+  border: 1px solid #544426;
+  color: #dfceaa;
+  font-size: 12px;
+}
+
+/* 鎖定分帳 Modal 專屬樣式 */
+.expense-lock-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.expense-lock-warning-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 13px 14px;
+  border-radius: 8px;
+  background: #2a2014;
+  border: 1px solid #7c5825;
+  color: #f2d8a8;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.expense-lock-warning-banner svg {
+  flex: 0 0 18px;
+  color: #e5b263;
+  margin-top: 1px;
+}
+
+.expense-lock-target-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 14px;
+  border-radius: 8px;
+  background: #1c262b;
+  border: 1px solid #324046;
+}
+
+.expense-lock-target-info strong {
+  color: #f0f1ed;
+  font-size: 14px;
+}
+
+.expense-lock-target-info span {
+  color: #e5c48e;
+  font-weight: 700;
+}
+
+.expense-lock-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.expense-lock-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+  color: #d0aa73;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.expense-lock-participants-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-color: #4a595f #172024;
+}
+
+.expense-lock-participant-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 7px;
+  background: #1d272d;
+  border: 1px solid #2e3a40;
+}
+
+.expense-lock-participant-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.expense-lock-participant-avatar {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #d0aa73;
+  color: #172024;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.expense-lock-participant-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.expense-lock-participant-name {
+  color: #edf2f3;
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.expense-lock-participant-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.expense-lock-participant-share {
+  color: #d4e0e2;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.expense-lock-transfers-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #1d272c;
+  border: 1px solid #33434a;
+}
+
+.expense-lock-transfer-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid #283439;
+  font-size: 13px;
+}
+
+.expense-lock-transfer-item:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.expense-lock-transfer-from,
+.expense-lock-transfer-to {
+  color: #f1ebd8;
+  font-weight: 600;
+}
+
+.expense-lock-transfer-text {
+  color: #9cb1b5;
+  font-size: 11px;
+}
+
+.expense-lock-transfer-amount {
+  margin-left: auto;
+  color: #e5c48e;
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.expense-lock-transfer-empty {
+  margin: 4px 0;
+  color: #9cb1b5;
+  font-size: 12px;
+  text-align: center;
+}
+
+.expense-lock-confirm-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  padding: 11px 18px;
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: 7px;
+  background: #a9622d;
+  border: 1px solid #c97f43;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.expense-lock-confirm-button:hover:not(:disabled) {
+  background: #be6f34;
+  border-color: #e29454;
+}
+
+.expense-lock-confirm-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 卡片鎖定狀態與按鈕 */
+.expense-card.is-locked {
+  border-color: #5d533f;
+  background: linear-gradient(180deg, #182226 0%, #131b1f 100%);
+  position: relative;
+}
+
+.expense-locked-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: #3a301f;
+  border: 1px solid #6b542e;
+  color: #e5be7d;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.expense-lock-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.expense-locked-join-hint,
+.expense-locked-status-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #af9772;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 9px;
+  border-radius: 5px;
+  background: #252019;
+  border: 1px solid #4a3e29;
+}
+
+@media (max-width: 480px) {
+  .travel-modal-backdrop {
+    padding: 10px;
+  }
+
+  .travel-modal {
+    max-height: calc(100dvh - 20px);
+  }
+
+  .travel-modal-content {
+    padding: 14px 15px;
+  }
+
+  .travel-modal-footer {
+    padding: 12px 15px;
+  }
+
+  .expense-settle-amounts {
+    grid-template-columns: 1fr;
+  }
+}

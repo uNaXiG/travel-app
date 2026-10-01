@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+    AlertTriangle,
+    ArrowRight,
     Check,
     CreditCard,
-    ArrowRight,
+    Lock,
     Pencil,
     Plus,
     Receipt,
@@ -15,6 +17,7 @@ import {
     X,
 } from 'lucide-react';
 import { totalExpensesInCurrency, totalExpensesInTwd, totalsByCurrency } from '../expenseUtils.js';
+import Modal from './Modal.jsx';
 
 const categories = ['車票', '機票', '住宿', '門票', '飲食', '購物'];
 const paymentMethods = ['現金支付', '信用卡', 'Apple Pay', '其他線上支付'];
@@ -112,7 +115,7 @@ function calculateSuggestedTransfers(expenses) {
     });
 }
 
-function ParticipantAvatar({ participant, active, canToggleStatus, isPayer, onToggle, onToggleStatus }) {
+function ParticipantAvatar({ participant, isPayer, onSelect }) {
     const [imageFailed, setImageFailed] = useState(false);
     const initial = (participant.name || '旅').slice(0, 1).toUpperCase();
     const statusLabel = isPayer ? (participant.settled ? '已先付款' : '尚未付款') : (participant.settled ? '已結清' : '尚未結清');
@@ -121,23 +124,287 @@ function ParticipantAvatar({ participant, active, canToggleStatus, isPayer, onTo
         setImageFailed(false);
     }, [participant.photoURL]);
 
-    function handleClick() {
-        onToggle();
-    }
+    return (
+        <div className="expense-avatar-wrap">
+            <button
+                className="expense-avatar-button"
+                type="button"
+                aria-label={`查看／標記結清 ${participant.name || '使用者'}（${statusLabel}）`}
+                title={`${participant.name || '旅人'} · ${statusLabel}（點擊標記結清）`}
+                onClick={onSelect}
+            >
+                {participant.photoURL && !imageFailed ? (
+                    <img className="expense-avatar" src={participant.photoURL} alt="" onError={() => setImageFailed(true)} />
+                ) : (
+                    <span className="expense-avatar expense-avatar-initial">{initial}</span>
+                )}
+                <span className={`expense-avatar-status${participant.settled ? ' is-settled' : ' is-unsettled'}`} aria-label={statusLabel}>
+                    {participant.settled ? <Check size={11} strokeWidth={3} /> : <X size={11} strokeWidth={3} />}
+                </span>
+            </button>
+        </div>
+    );
+}
+
+function ExpenseSettleModal({ expense, participant, currentUserId, onClose, onConfirm, working }) {
+    const [imageFailed, setImageFailed] = useState(false);
+    const isOwner = expense.creatorId === currentUserId;
+    const isPayer = participant.uid === expense.creatorId;
+    const canToggleStatus = isOwner && (!isPayer || !participant.settled);
+    const initial = (participant.name || '旅').slice(0, 1).toUpperCase();
+
+    const shares = expenseSharesInMinorUnits(expense);
+    const shareMinor = shares.find((s) => s.participant.uid === participant.uid)?.amount || 0;
+    const multiplier = expense.currency === 'JPY' ? 1 : 100;
+    const shareAmount = formatAmount(shareMinor / multiplier, expense.currency);
+    const statusLabel = isPayer ? (participant.settled ? '已先付款' : '尚未付款') : (participant.settled ? '已結清' : '尚未結清');
+
+    useEffect(() => {
+        setImageFailed(false);
+    }, [participant.photoURL]);
 
     return (
-        <div className={`expense-avatar-wrap${active ? ' is-active' : ''}`}>
-            <button className="expense-avatar-button" type="button" aria-label={`${canToggleStatus ? '切換' : '查看'}${participant.name || '使用者'}的${isPayer ? '付款' : '結清'}狀態`} aria-expanded={active} onClick={handleClick}>
-                {participant.photoURL && !imageFailed ? <img className="expense-avatar" src={participant.photoURL} alt="" onError={() => setImageFailed(true)} /> : <span className="expense-avatar expense-avatar-initial">{initial}</span>}
-                <span className={`expense-avatar-status${participant.settled ? ' is-settled' : ' is-unsettled'}`} aria-label={statusLabel}>{participant.settled ? <Check size={11} strokeWidth={3} /> : <X size={11} strokeWidth={3} />}</span>
-            </button>
-            <div className="expense-participant-popover" role="status">
-                <strong>{participant.name || '旅人'}</strong>
-                <span>加入時間：{formatDate(participant.joinedAt)}</span>
-                <span>{statusLabel}</span>
-                {canToggleStatus && <button className="expense-popover-status-action" type="button" onClick={onToggleStatus}>{participant.settled ? <><Undo2 size={13} />{isPayer ? '取消已付款' : '取消結清'}</> : <><Check size={13} />{isPayer ? '標記已付款' : '標記結清'}</>}</button>}
+        <Modal
+            isOpen={true}
+            onClose={onClose}
+            eyebrow="SETTLEMENT STATUS"
+            title="標記結清"
+            footer={
+                canToggleStatus ? (
+                    <>
+                        <button className="secondary-button" type="button" onClick={onClose} disabled={working}>取消</button>
+                        <button className="primary-button" type="button" onClick={() => onConfirm(participant.uid, !participant.settled)} disabled={working}>
+                            {working ? '處理中…' : participant.settled ? (isPayer ? '確認取消付款' : '確認取消結清') : (isPayer ? '確認標記已付款' : '確認標記結清')}
+                        </button>
+                    </>
+                ) : (
+                    <button className="primary-button" type="button" onClick={onClose}>關閉</button>
+                )
+            }
+        >
+            <div className="expense-settle-body">
+                <div className="expense-settle-target-info">
+                    <div>
+                        <span>公帳支出</span>
+                        <strong>{expense.title}</strong>
+                    </div>
+                    <strong className="expense-settle-target-total">{formatAmount(expense.amount, expense.currency)}</strong>
+                </div>
+
+                <div className="expense-settle-user-card">
+                    <div className="expense-settle-user-avatar">
+                        {participant.photoURL && !imageFailed ? (
+                            <img src={participant.photoURL} alt="" onError={() => setImageFailed(true)} />
+                        ) : (
+                            initial
+                        )}
+                    </div>
+                    <div className="expense-settle-user-details">
+                        <div className="expense-settle-user-topline">
+                            <strong>{participant.name || '旅人'}</strong>
+                            <span className={`expense-settle-role-tag${isPayer ? ' is-payer' : ''}`}>
+                                {isPayer ? '付款人 (建立者)' : '分帳成員'}
+                            </span>
+                        </div>
+                        <small>加入時間：{formatDate(participant.joinedAt)}</small>
+                    </div>
+                </div>
+
+                <div className="expense-settle-amounts">
+                    <div className="expense-settle-amount-box">
+                        <span>應分攤金額</span>
+                        <strong>{shareAmount}</strong>
+                    </div>
+                    <div className="expense-settle-amount-box">
+                        <span>目前狀態</span>
+                        <strong className={`expense-settle-status-tag${participant.settled ? ' is-settled' : ' is-unsettled'}`}>
+                            {participant.settled ? <Check size={15} strokeWidth={2.5} /> : <X size={15} strokeWidth={2.5} />}
+                            {statusLabel}
+                        </strong>
+                    </div>
+                </div>
+
+                {canToggleStatus ? (
+                    <div className="expense-settle-prompt-box">
+                        {participant.settled
+                            ? `目前此成員已標記為${statusLabel}。點擊確認後將取消結清狀態。`
+                            : `確定要將「${participant.name || '旅人'}」的分帳狀態標記為「${isPayer ? '已先付款' : '已結清'}」嗎？確認後將更新轉帳資料。`}
+                    </div>
+                ) : (
+                    <div className="expense-settle-permission-hint">
+                        {!isOwner
+                            ? '只有公帳建立者可變更分帳成員的付款與結清狀態。'
+                            : '已先付款的公帳付款人不可更改狀態，以確保帳目正確。'}
+                    </div>
+                )}
             </div>
-        </div>
+        </Modal>
+    );
+}
+
+function ExpenseLockModal({ expense, onClose, onConfirmLock, working }) {
+    const participants = participantEntries(expense);
+    const multiplier = expense.currency === 'JPY' ? 1 : 100;
+    const shares = expenseSharesInMinorUnits(expense);
+    const transfers = useMemo(() => calculateSuggestedTransfers([expense]), [expense]);
+
+    const participantMap = useMemo(() => {
+        const map = new Map();
+        participants.forEach((p) => map.set(p.uid, p.name || '旅人'));
+        return map;
+    }, [participants]);
+
+    return (
+        <Modal
+            isOpen={true}
+            onClose={onClose}
+            eyebrow="LOCK EXPENSE"
+            title="鎖定分帳"
+            footer={
+                <button
+                    className="expense-lock-confirm-button"
+                    type="button"
+                    onClick={() => onConfirmLock(expense.id)}
+                    disabled={working}
+                >
+                    <Lock size={15} />
+                    {working ? '正在鎖定中…' : '確認鎖定分帳'}
+                </button>
+            }
+        >
+            <div className="expense-lock-body">
+                <div className="expense-lock-warning-banner">
+                    <AlertTriangle size={18} />
+                    <div>
+                        <strong>注意：鎖定分帳為不可逆操作！</strong>
+                        <div>鎖定後將無法再有新成員加入分帳，且現有成員無法退出。請核對以下分帳成員與轉帳結論。</div>
+                    </div>
+                </div>
+
+                <div className="expense-lock-target-info">
+                    <strong>{expense.title}</strong>
+                    <span>{formatAmount(expense.amount, expense.currency)}</span>
+                </div>
+
+                <div className="expense-lock-section">
+                    <h3 className="expense-lock-section-title">
+                        <span>參與分帳成員</span>
+                        <span>共 {participants.length} 人</span>
+                    </h3>
+                    <div className="expense-lock-participants-list">
+                        {participants.map((participant) => {
+                            const isPayer = participant.uid === expense.creatorId;
+                            const initial = (participant.name || '旅').slice(0, 1).toUpperCase();
+                            const shareItem = shares.find((s) => s.participant.uid === participant.uid);
+                            const shareText = shareItem ? formatAmount(shareItem.amount / multiplier, expense.currency) : '';
+                            const statusText = isPayer ? (participant.settled ? '已先付款' : '尚未付款') : (participant.settled ? '已結清' : '尚未結清');
+                            return (
+                                <div className="expense-lock-participant-row" key={participant.uid}>
+                                    <div className="expense-lock-participant-main">
+                                        <span className="expense-lock-participant-avatar">
+                                            {participant.photoURL ? <img src={participant.photoURL} alt="" /> : initial}
+                                        </span>
+                                        <span className="expense-lock-participant-name">{participant.name || '旅人'}</span>
+                                        <span className={`expense-settle-role-tag${isPayer ? ' is-payer' : ''}`}>
+                                            {isPayer ? '付款人' : '成員'}
+                                        </span>
+                                    </div>
+                                    <div className="expense-lock-participant-meta">
+                                        <span className="expense-lock-participant-share">應分攤 {shareText}</span>
+                                        <span className={`expense-settle-status-tag${participant.settled ? ' is-settled' : ' is-unsettled'}`}>
+                                            {statusText}
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                <div className="expense-lock-section">
+                    <h3 className="expense-lock-section-title">
+                        <span>建議轉帳結論</span>
+                    </h3>
+                    <div className="expense-lock-transfers-card">
+                        {transfers.length > 0 ? (
+                            transfers.map((transfer, index) => (
+                                <div className="expense-lock-transfer-item" key={index}>
+                                    <span className="expense-lock-transfer-from">{participantMap.get(transfer.from) || '旅人'}</span>
+                                    <ArrowRight size={14} className="expense-lock-transfer-arrow" />
+                                    <span className="expense-lock-transfer-to">{participantMap.get(transfer.to) || '旅人'}</span>
+                                    <span className="expense-lock-transfer-text">轉帳</span>
+                                    <strong className="expense-lock-transfer-amount">{formatAmount(transfer.amount / multiplier, transfer.currency)}</strong>
+                                </div>
+                            ))
+                        ) : (
+                            <p className="expense-lock-transfer-empty">目前沒有待結清款項（款項皆已結清或由建立者全額支付）。</p>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </Modal>
+    );
+}
+
+function ExpenseParticipantsListModal({ expense, onClose, onSelectParticipant }) {
+    const participants = participantEntries(expense);
+    const multiplier = expense.currency === 'JPY' ? 1 : 100;
+    const shares = expenseSharesInMinorUnits(expense);
+
+    return (
+        <Modal
+            isOpen={true}
+            onClose={onClose}
+            eyebrow="PARTICIPANTS"
+            title="分帳成員列表"
+            footer={
+                <button className="primary-button" type="button" onClick={onClose}>關閉</button>
+            }
+        >
+            <div className="expense-lock-body">
+                <div className="expense-lock-target-info">
+                    <strong>{expense.title}</strong>
+                    <span>共 {participants.length} 位成員</span>
+                </div>
+                <div className="expense-lock-participants-list" style={{ maxHeight: '360px' }}>
+                    {participants.map((participant) => {
+                        const isPayer = participant.uid === expense.creatorId;
+                        const initial = (participant.name || '旅').slice(0, 1).toUpperCase();
+                        const shareItem = shares.find((s) => s.participant.uid === participant.uid);
+                        const shareText = shareItem ? formatAmount(shareItem.amount / multiplier, expense.currency) : '';
+                        const statusText = isPayer ? (participant.settled ? '已先付款' : '尚未付款') : (participant.settled ? '已結清' : '尚未結清');
+                        return (
+                            <button
+                                key={participant.uid}
+                                type="button"
+                                className="expense-lock-participant-row"
+                                style={{ width: '100%', cursor: 'pointer', textAlign: 'left', font: 'inherit' }}
+                                onClick={() => {
+                                    onClose();
+                                    onSelectParticipant(expense, participant);
+                                }}
+                            >
+                                <div className="expense-lock-participant-main">
+                                    <span className="expense-lock-participant-avatar">
+                                        {participant.photoURL ? <img src={participant.photoURL} alt="" /> : initial}
+                                    </span>
+                                    <span className="expense-lock-participant-name">{participant.name || '旅人'}</span>
+                                    <span className={`expense-settle-role-tag${isPayer ? ' is-payer' : ''}`}>
+                                        {isPayer ? '付款人' : '成員'}
+                                    </span>
+                                </div>
+                                <div className="expense-lock-participant-meta">
+                                    <span className="expense-lock-participant-share">{shareText}</span>
+                                    <span className={`expense-settle-status-tag${participant.settled ? ' is-settled' : ' is-unsettled'}`}>
+                                        {statusText}
+                                    </span>
+                                </div>
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+        </Modal>
     );
 }
 
@@ -178,10 +445,8 @@ function ExpenseForm({ kind, initialValue, isEditing, onSubmit, onCancel, workin
     );
 }
 
-function SharedExpenseCard({ expense, user, onJoin, onLeave, onEdit, onRemove, onSettle, working }) {
+function SharedExpenseCard({ expense, user, onJoin, onLeave, onEdit, onRemove, onSelectParticipant, onOpenLock, working }) {
     const participants = participantEntries(expense);
-    const [activeParticipantUid, setActiveParticipantUid] = useState(null);
-    const participantListRef = useRef(null);
     const currentParticipant = participants.find((participant) => participant.uid === user.uid);
     const isOwner = expense.creatorId === user.uid;
     const personalAmount = expenseSharesInMinorUnits(expense).find(({ participant }) => participant.uid === user.uid)?.amount;
@@ -194,31 +459,58 @@ function SharedExpenseCard({ expense, user, onJoin, onLeave, onEdit, onRemove, o
         return isOwner && (participant.uid !== expense.creatorId || !participant.settled);
     }
 
-    useEffect(() => {
-        if (!activeParticipantUid) return undefined;
-        function closePopover(event) {
-            if (!participantListRef.current?.contains(event.target)) setActiveParticipantUid(null);
-        }
-        document.addEventListener('pointerdown', closePopover);
-        return () => document.removeEventListener('pointerdown', closePopover);
-    }, [activeParticipantUid]);
+    const firstUnsettled = participants.find((p) => canToggleParticipant(p) && !p.settled) || participants[0];
 
     return (
-        <article className="expense-card">
+        <article className={`expense-card${expense.locked ? ' is-locked' : ''}`}>
             <div className="expense-card-topline">
-                <span className="expense-category">{expense.category}</span>
-                {isOwner && <div className="expense-card-owner-actions"><button className="expense-icon-action" type="button" aria-label="編輯公帳" title="編輯公帳" onClick={onEdit}><Pencil size={15} /></button><button className="expense-icon-action expense-icon-action-danger" type="button" aria-label="刪除公帳" title="刪除公帳" onClick={onRemove} disabled={working}><Trash2 size={15} /></button></div>}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span className="expense-category">{expense.category}</span>
+                    {expense.locked && (
+                        <span className="expense-locked-badge">
+                            <Lock size={12} /> 分帳已鎖定
+                        </span>
+                    )}
+                </div>
+                {isOwner && (
+                    <div className="expense-card-owner-actions">
+                        <button className="expense-icon-action" type="button" aria-label="編輯公帳" title="編輯公帳" onClick={onEdit}><Pencil size={15} /></button>
+                        <button className="expense-icon-action expense-icon-action-danger" type="button" aria-label="刪除公帳" title="刪除公帳" onClick={onRemove} disabled={working}><Trash2 size={15} /></button>
+                    </div>
+                )}
             </div>
             <div className="expense-card-title-row">
                 <div><h3>{expense.title}</h3>{expense.description && <p>{expense.description}</p>}</div>
             </div>
-            <div className="expense-meta-grid"><span><Users size={14} />{participants.length} 人均分</span><span><Wallet size={14} />{expense.paymentMethod}</span><span><Receipt size={14} />{paid ? `付款人：${expense.creatorName}` : '尚未付款'}</span><div className="expense-meta-participants" ref={participantListRef} aria-label="分帳成員"><div className="expense-avatar-row">
-                {visibleParticipants.map((participant) => <ParticipantAvatar key={participant.uid} participant={participant} active={activeParticipantUid === participant.uid} canToggleStatus={canToggleParticipant(participant)} isPayer={participant.uid === expense.creatorId} onToggle={() => setActiveParticipantUid((current) => current === participant.uid ? null : participant.uid)} onToggleStatus={() => onSettle(participant.uid, !participant.settled)} />)}
-                {hiddenParticipants.length > 0 && <div className={`expense-avatar-wrap${activeParticipantUid === '__overflow__' ? ' is-active' : ''}`}>
-                    <button className="expense-avatar-button expense-avatar-overflow" type="button" aria-label={`查看另外 ${hiddenParticipants.length} 位使用者`} aria-expanded={activeParticipantUid === '__overflow__'} onClick={() => setActiveParticipantUid((current) => current === '__overflow__' ? null : '__overflow__')}>+{hiddenParticipants.length}</button>
-                    <div className="expense-participant-popover expense-overflow-popover" role="status">{hiddenParticipants.map((participant) => { const isPayer = participant.uid === expense.creatorId; return <span className="expense-overflow-participant" key={participant.uid}><span className="expense-overflow-avatar">{(participant.name || '旅').slice(0, 1).toUpperCase()}</span><span className="expense-overflow-details"><strong>{participant.name || '旅人'} <em className={`expense-inline-status${participant.settled ? ' is-settled' : ' is-unsettled'}`}>{participant.settled ? <Check size={10} strokeWidth={3} /> : <X size={10} strokeWidth={3} />}</em></strong><small>{isPayer ? (participant.settled ? '已先付款' : '尚未付款') : (participant.settled ? '已結清' : '尚未結清')}</small></span>{canToggleParticipant(participant) && <button className="expense-popover-status-action" type="button" onClick={() => onSettle(participant.uid, !participant.settled)}>{participant.settled ? <><Undo2 size={13} />{isPayer ? '取消已付款' : '取消結清'}</> : <><Check size={13} />{isPayer ? '標記已付款' : '標記結清'}</>}</button>}</span>; })}</div>
-                </div>}
-            </div></div></div>
+            <div className="expense-meta-grid">
+                <span><Users size={14} />{participants.length} 人均分</span>
+                <span><Wallet size={14} />{expense.paymentMethod}</span>
+                <span><Receipt size={14} />{paid ? `付款人：${expense.creatorName}` : '尚未付款'}</span>
+                <div className="expense-meta-participants" aria-label="分帳成員">
+                    <div className="expense-avatar-row">
+                        {visibleParticipants.map((participant) => (
+                            <ParticipantAvatar
+                                key={participant.uid}
+                                participant={participant}
+                                isPayer={participant.uid === expense.creatorId}
+                                onSelect={() => onSelectParticipant(expense, participant)}
+                            />
+                        ))}
+                        {hiddenParticipants.length > 0 && (
+                            <div className="expense-avatar-wrap">
+                                <button
+                                    className="expense-avatar-button expense-avatar-overflow"
+                                    type="button"
+                                    aria-label={`查看另外 ${hiddenParticipants.length} 位使用者`}
+                                    onClick={() => onSelectParticipant(expense, '__overflow__')}
+                                >
+                                    +{hiddenParticipants.length}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
             <div className="expense-finance-row">
                 <div className="expense-split-summary">
                     <div><span>原始金額</span><strong>{formatAmount(expense.amount, expense.currency)}</strong></div>
@@ -228,7 +520,61 @@ function SharedExpenseCard({ expense, user, onJoin, onLeave, onEdit, onRemove, o
                     </div>
                 </div>
             </div>
-            <div className="expense-card-footer"><div className="expense-card-actions">{!currentParticipant && <button className="secondary-button" type="button" onClick={onJoin} disabled={working}><UserPlus size={15} />加入分帳</button>}{currentParticipant && !isOwner && <button className="secondary-button" type="button" onClick={onLeave} disabled={working}><UserMinus size={15} />退出分帳</button>}</div><span className="expense-date">{formatDate(expense.createdAt)}</span></div>
+            <div className="expense-card-footer">
+                <div className="expense-card-actions">
+                    {/* 建立者快捷標記結清按鈕 */}
+                    {isOwner && firstUnsettled && (
+                        <button
+                            className="secondary-button"
+                            type="button"
+                            aria-label="標記結清"
+                            onClick={() => onSelectParticipant(expense, firstUnsettled)}
+                            disabled={working}
+                        >
+                            <Check size={14} />標記結清
+                        </button>
+                    )}
+                    {/* 建立者鎖定分帳按鈕（不可逆） */}
+                    {isOwner && !expense.locked && (
+                        <button
+                            className="secondary-button expense-lock-button"
+                            type="button"
+                            aria-label="鎖定分帳"
+                            onClick={() => onOpenLock(expense)}
+                            disabled={working}
+                        >
+                            <Lock size={14} />鎖定分帳
+                        </button>
+                    )}
+
+                    {/* 非參與者：若已鎖定則禁止加入，否則可加入分帳 */}
+                    {!currentParticipant && (
+                        expense.locked ? (
+                            <span className="expense-locked-hint">
+                                <Lock size={13} />此公帳已鎖定，無法加入分帳
+                            </span>
+                        ) : (
+                            <button className="secondary-button" type="button" onClick={onJoin} disabled={working}>
+                                <UserPlus size={15} />加入分帳
+                            </button>
+                        )
+                    )}
+
+                    {/* 參與者（非建立者）：若未鎖定可退出，已鎖定則不可退出 */}
+                    {currentParticipant && !isOwner && (
+                        expense.locked ? (
+                            <span className="expense-locked-status-tag">
+                                <Lock size={13} />分帳已鎖定
+                            </span>
+                        ) : (
+                            <button className="secondary-button" type="button" onClick={onLeave} disabled={working}>
+                                <UserMinus size={15} />退出分帳
+                            </button>
+                        )
+                    )}
+                </div>
+                <span className="expense-date">{formatDate(expense.createdAt)}</span>
+            </div>
         </article>
     );
 }
@@ -278,6 +624,9 @@ function ExpenseTripDialog({ user, expenseStore, trip, expenseData, jpyToTwd, ra
     const [editingExpense, setEditingExpense] = useState(null);
     const [working, setWorking] = useState(false);
     const [displayCurrency, setDisplayCurrency] = useState('TWD');
+    const [settlingTarget, setSettlingTarget] = useState(null);
+    const [lockingExpense, setLockingExpense] = useState(null);
+    const [participantsListExpense, setParticipantsListExpense] = useState(null);
     const sharedExpenses = expenseData?.shared || [];
     const personalExpenses = expenseData?.personal || [];
     const loadState = expenseData?.sharedReady && expenseData?.personalReady ? 'ready' : 'loading';
@@ -321,8 +670,9 @@ function ExpenseTripDialog({ user, expenseStore, trip, expenseData, jpyToTwd, ra
             else await expenseStore.createPersonal(user.uid, trip.id, form);
             setNotice('帳目已儲存');
             resetForm();
-        } catch {
-            setError('帳目儲存失敗，請確認 Firebase 設定後再試。');
+        } catch (err) {
+            console.error('saveExpense failed:', err);
+            setError(err?.message || '帳目儲存失敗，請確認 Firebase 設定後再試。');
         } finally {
             setWorking(false);
         }
@@ -343,6 +693,10 @@ function ExpenseTripDialog({ user, expenseStore, trip, expenseData, jpyToTwd, ra
     }
 
     async function joinExpense(expense) {
+        if (expense.locked) {
+            setError('此公帳分帳已鎖定，無法加入。');
+            return;
+        }
         setWorking(true);
         try {
             await expenseStore.joinShared(trip.id, expense.id, user.uid, { name: user.displayName || user.email?.split('@')[0], photoURL: user.photoURL || '' });
@@ -355,6 +709,10 @@ function ExpenseTripDialog({ user, expenseStore, trip, expenseData, jpyToTwd, ra
     }
 
     async function leaveExpense(expense) {
+        if (expense.locked) {
+            setError('此公帳分帳已鎖定，無法退出。');
+            return;
+        }
         if (!window.confirm(`確定要退出「${expense.title}」的分帳嗎？`)) return;
         setWorking(true);
         try {
@@ -372,10 +730,32 @@ function ExpenseTripDialog({ user, expenseStore, trip, expenseData, jpyToTwd, ra
         try {
             await expenseStore.setParticipantSettled(trip.id, expense.id, participantUid, settled, expense.creatorId);
             setNotice(settled ? '已標記為結清' : '已取消結清標記');
+            setSettlingTarget(null);
         } catch {
             setError('更新結清狀態失敗，請稍後再試。');
         } finally {
             setWorking(false);
+        }
+    }
+
+    async function lockExpense(expenseId) {
+        setWorking(true);
+        try {
+            await expenseStore.lockShared(trip.id, expenseId);
+            setNotice('公帳分帳已鎖定');
+            setLockingExpense(null);
+        } catch {
+            setError('鎖定分帳失敗，請稍後再試。');
+        } finally {
+            setWorking(false);
+        }
+    }
+
+    function handleSelectParticipant(expense, participant) {
+        if (participant === '__overflow__') {
+            setParticipantsListExpense(expense);
+        } else {
+            setSettlingTarget({ expense, participant });
         }
     }
 
@@ -404,6 +784,11 @@ function ExpenseTripDialog({ user, expenseStore, trip, expenseData, jpyToTwd, ra
     const activeExpenses = view === 'shared' ? sharedExpenses : personalExpenses;
     const displayTotal = totalExpensesInCurrency(activeExpenses, displayCurrency, jpyToTwd);
 
+    const activeSettlingExpense = settlingTarget ? sharedExpenses.find((e) => e.id === settlingTarget.expense.id) || settlingTarget.expense : null;
+    const activeSettlingParticipant = activeSettlingExpense && settlingTarget ? participantEntries(activeSettlingExpense).find((p) => p.uid === settlingTarget.participant.uid) || settlingTarget.participant : null;
+    const activeLockingExpense = lockingExpense ? sharedExpenses.find((e) => e.id === lockingExpense.id) || lockingExpense : null;
+    const activeOverflowExpense = participantsListExpense ? sharedExpenses.find((e) => e.id === participantsListExpense.id) || participantsListExpense : null;
+
     return (
         <div className="expense-modal-backdrop">
             <section className="expense-modal" role="dialog" aria-modal="true" aria-labelledby="expense-modal-title">
@@ -423,12 +808,39 @@ function ExpenseTripDialog({ user, expenseStore, trip, expenseData, jpyToTwd, ra
                         {view === 'shared' && <section className="expense-settlement-panel" aria-label="建議轉帳"><div className="expense-settlement-heading"><div><p className="section-eyebrow">SETTLEMENT</p><h2>建議轉帳</h2></div><span>此旅行公帳・同幣別淨額結算</span></div>{suggestedTransfers.length ? <div className="expense-transfer-list">{suggestedTransfers.map((transfer, index) => <div className="expense-transfer-row" key={`${transfer.currency}-${transfer.from}-${transfer.to}-${index}`}><strong>{participantNames.get(transfer.from) || '旅人'}</strong><ArrowRight size={15} /><strong>{participantNames.get(transfer.to) || '旅人'}</strong><span>轉帳</span><b>{formatAmount(transfer.amount / (transfer.currency === 'JPY' ? 1 : 100), transfer.currency)}</b></div>)}</div> : <p className="expense-settlement-empty">目前沒有待結清款項</p>}<p className="expense-settlement-note">只計算此旅行公帳的未結清分攤；同一成員間的金額會先合併抵銷。</p></section>}
                         {formKind && <ExpenseForm kind={formKind} initialValue={formInitialValue} isEditing={Boolean(editingExpense)} onSubmit={saveExpense} onCancel={resetForm} working={working} />}
                         {loadState === 'loading' ? <div className="expense-empty">正在讀取此旅行的帳目…</div> : view === 'shared' ? (
-                            <div className="expense-list">{sharedExpenses.length ? sharedExpenses.map((expense) => <SharedExpenseCard key={expense.id} expense={expense} user={user} onJoin={() => joinExpense(expense)} onLeave={() => leaveExpense(expense)} onEdit={() => openEdit('shared', expense)} onRemove={() => removeExpense('shared', expense)} onSettle={(participantUid, settled) => settleParticipant(expense, participantUid, settled)} working={working} />) : <div className="expense-empty"><Receipt size={26} /><strong>還沒有公帳</strong><span>先建立這趟旅行的第一筆公帳。</span></div>}</div>
+                            <div className="expense-list">{sharedExpenses.length ? sharedExpenses.map((expense) => <SharedExpenseCard key={expense.id} expense={expense} user={user} onJoin={() => joinExpense(expense)} onLeave={() => leaveExpense(expense)} onEdit={() => openEdit('shared', expense)} onRemove={() => removeExpense('shared', expense)} onSelectParticipant={handleSelectParticipant} onOpenLock={(targetExpense) => setLockingExpense(targetExpense)} working={working} />) : <div className="expense-empty"><Receipt size={26} /><strong>還沒有公帳</strong><span>先建立這趟旅行的第一筆公帳。</span></div>}</div>
                         ) : <div className="expense-list">{personalExpenses.length ? personalExpenses.map((expense) => <PersonalExpenseCard key={expense.id} expense={expense} onEdit={() => openEdit('personal', expense)} onRemove={() => removeExpense('personal', expense)} working={working} />) : <div className="expense-empty"><Wallet size={26} /><strong>還沒有個人帳目</strong><span>記下這趟旅行中只屬於自己的支出。</span></div>}</div>}
                         <div className="expense-total-bar"><div><span>{view === 'shared' ? '公帳總計' : '私人花費'}</span><strong>{displayTotal === null ? '匯率讀取中…' : formatAmount(displayTotal, displayCurrency)}</strong><small>{rateUpdatedAt ? `匯率更新於 ${formatDate(rateUpdatedAt.getTime())}` : '正在取得即時匯率'}</small></div><div className="currency-toggle" aria-label="總額顯示幣別"><button className={displayCurrency === 'TWD' ? 'active' : ''} type="button" onClick={() => setDisplayCurrency('TWD')}>台幣</button><button className={displayCurrency === 'JPY' ? 'active' : ''} type="button" onClick={() => setDisplayCurrency('JPY')}>日圓</button></div></div>
                     </section>
                 </div>
             </section>
+
+            {/* 置中的浮動視窗 (Modal) */}
+            {activeSettlingExpense && activeSettlingParticipant && (
+                <ExpenseSettleModal
+                    expense={activeSettlingExpense}
+                    participant={activeSettlingParticipant}
+                    currentUserId={user.uid}
+                    onClose={() => setSettlingTarget(null)}
+                    onConfirm={(participantUid, settled) => settleParticipant(activeSettlingExpense, participantUid, settled)}
+                    working={working}
+                />
+            )}
+            {activeLockingExpense && (
+                <ExpenseLockModal
+                    expense={activeLockingExpense}
+                    onClose={() => setLockingExpense(null)}
+                    onConfirmLock={(expenseId) => lockExpense(expenseId)}
+                    working={working}
+                />
+            )}
+            {activeOverflowExpense && (
+                <ExpenseParticipantsListModal
+                    expense={activeOverflowExpense}
+                    onClose={() => setParticipantsListExpense(null)}
+                    onSelectParticipant={(expense, participant) => setSettlingTarget({ expense, participant })}
+                />
+            )}
         </div>
     );
 }
