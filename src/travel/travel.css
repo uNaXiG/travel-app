@@ -3647,6 +3647,14 @@
   background: #141b21;
 }
 
+.expense-entry-form-modal .expense-form {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
 .expense-form-heading {
   display: flex;
   align-items: flex-start;
@@ -3671,6 +3679,46 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
+}
+
+.expense-form-grid .expense-title-field,
+.expense-form-grid .expense-category-field,
+.expense-form-grid .expense-amount-field,
+.expense-form-grid .expense-currency-field,
+.expense-form-grid .expense-payment-method-field,
+.expense-form-grid .expense-payment-status {
+  grid-column: span 2;
+}
+
+.personal-expense-form .expense-form-grid {
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+}
+
+.personal-expense-form .expense-title-field,
+.personal-expense-form .expense-category-field {
+  grid-column: auto;
+}
+
+.personal-expense-form .expense-payment-method-field {
+  grid-column: 1 / -1;
+}
+
+.expense-payment-row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.expense-payment-row .expense-payment-method-field {
+  grid-column: 1;
+  min-width: 0;
+}
+
+.expense-payment-row .expense-payment-status {
+  grid-column: 2;
+  justify-content: flex-end;
 }
 
 .expense-form-grid label {
@@ -3751,10 +3799,35 @@
 }
 
 .expense-form-actions {
-  display: flex;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   margin-top: 15px;
+}
+
+.expense-form-actions .primary-button {
+  width: 100%;
+}
+
+.personal-expense-form .expense-form-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.personal-expense-form .expense-form-actions .primary-button {
+  width: 100%;
+}
+
+@media (max-width: 420px) {
+  .personal-expense-form .expense-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .personal-expense-form .expense-title-field,
+  .personal-expense-form .expense-category-field,
+  .personal-expense-form .expense-payment-method-field {
+    grid-column: 1 / -1;
+  }
 }
 
 .expense-notice {
@@ -3837,6 +3910,16 @@
 .expense-icon-action-lock:hover:not(:disabled) {
   color: #fff0c7;
   background: rgba(208, 170, 115, .34);
+}
+
+.expense-icon-action-settle {
+  color: #c6d8a7;
+  background: rgba(129, 159, 95, .16);
+}
+
+.expense-icon-action-settle:hover:not(:disabled) {
+  color: #e4f0c7;
+  background: rgba(129, 159, 95, .34);
 }
 
 .expense-icon-action-danger:hover:not(:disabled) {
@@ -4352,12 +4435,52 @@
   }
 
   .expense-form-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1.4fr) minmax(120px, 1fr);
   }
 
-  .expense-form-grid label:first-child,
+  .expense-form-grid .expense-title-field,
+  .expense-form-grid .expense-category-field {
+    grid-column: auto;
+  }
+
+  .expense-form-grid .expense-amount-field,
+  .expense-form-grid .expense-currency-field,
+  .expense-form-grid .expense-payment-method-field,
+  .expense-form-grid .expense-payment-status {
+    grid-column: auto;
+  }
+
   .expense-form-wide {
     grid-column: 1 / -1;
+  }
+
+  .expense-form-grid .expense-category-field {
+    grid-column: span 1;
+  }
+
+  .expense-form-grid .expense-amount-field,
+  .expense-form-grid .expense-currency-field,
+  .expense-form-grid .expense-payment-method-field,
+  .expense-form-grid .expense-payment-status {
+    grid-column: 1 / -1;
+  }
+
+  .expense-payment-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+  }
+
+  .expense-payment-row .expense-payment-status {
+    justify-content: flex-start;
+  }
+
+  .expense-form-grid .expense-payment-row .expense-payment-method-field {
+    grid-column: 1;
+  }
+
+  .expense-form-grid .expense-payment-row .expense-payment-status {
+    grid-column: 2;
+    justify-content: flex-end;
   }
 
   .expense-card {
@@ -4770,7 +4893,7 @@
 
 .expense-card:not(.personal-expense-card) .expense-meta-grid {
   padding-bottom: 12px;
-  border-bottom: 1px solid #2d3942;
+  border-bottom: 0;
 }
 
 .expense-card:not(.personal-expense-card) .expense-finance-row {
@@ -4785,7 +4908,7 @@
   min-height: 32px;
   margin-top: 13px;
   padding-top: 10px;
-  border-top: 1px solid #2d3942;
+  border-top: 0;
 }
 
 .expense-card-footer .expense-card-actions {
@@ -5119,7 +5242,7 @@
 
   .expense-trip-summary {
     min-height: 0;
-    grid-template-columns: 36px minmax(0, 1fr) 20px;
+    grid-template-columns: 36px repeat(2, minmax(0, 1fr)) 20px;
     gap: 9px 12px;
     padding: 13px 14px;
   }
@@ -5131,7 +5254,7 @@
   }
 
   .expense-trip-summary-name {
-    grid-column: 2;
+    grid-column: 2 / 4;
     grid-row: 1;
   }
 
@@ -5141,12 +5264,12 @@
   }
 
   .expense-trip-summary-total.is-personal {
-    grid-column: 2;
-    grid-row: 3;
+    grid-column: 3;
+    grid-row: 2;
   }
 
   .expense-trip-summary>svg {
-    grid-column: 3;
+    grid-column: 4;
     grid-row: 1 / 4;
     align-self: center;
   }

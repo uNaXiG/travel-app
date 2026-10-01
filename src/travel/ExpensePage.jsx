@@ -3,6 +3,7 @@ import {
     AlertTriangle,
     ArrowRight,
     ArrowRightLeft,
+    BadgeCheck,
     Check,
     CreditCard,
     Lock,
@@ -411,7 +412,7 @@ function ExpenseParticipantsListModal({ expense, onClose, onSelectParticipant })
     );
 }
 
-function ExpenseForm({ kind, initialValue, isEditing, onSubmit, onCancel, working }) {
+function ExpenseForm({ kind, initialValue, isEditing, onSubmit, working }) {
     const [form, setForm] = useState(initialValue || emptyForm);
     const isShared = kind === 'shared';
 
@@ -429,21 +430,21 @@ function ExpenseForm({ kind, initialValue, isEditing, onSubmit, onCancel, workin
     }
 
     return (
-        <form className="expense-form" onSubmit={submit}>
-            <div className="expense-form-heading">
-                <div><p className="section-eyebrow">{isShared ? 'SHARED EXPENSE' : 'PERSONAL EXPENSE'}</p><h2>{isEditing ? '編輯帳目' : '新增帳目'}</h2></div>
-                <button className="icon-button" type="button" aria-label="關閉表單" onClick={onCancel}><X size={17} /></button>
-            </div>
+        <form className={`expense-form${isShared ? '' : ' personal-expense-form'}`} onSubmit={submit}>
             <div className="expense-form-grid">
-                <label><span>{isShared ? '公帳標題' : '私人帳目標題'}</span><input required maxLength={60} value={form.title} onChange={(event) => updateField('title', event.target.value)} placeholder="例如：名古屋站到機場車票" /></label>
-                <label><span>帳目分類</span><select value={form.category} onChange={(event) => updateField('category', event.target.value)}>{categories.map((category) => <option key={category}>{category}</option>)}</select></label>
+                <label className="expense-title-field"><span>{isShared ? '公帳標題' : '私人帳目標題'}</span><input required maxLength={60} value={form.title} onChange={(event) => updateField('title', event.target.value)} placeholder="例如：名古屋站到機場車票" /></label>
+                <label className="expense-category-field"><span>帳目分類</span><select value={form.category} onChange={(event) => updateField('category', event.target.value)}>{categories.map((category) => <option key={category}>{category}</option>)}</select></label>
                 <label className="expense-form-wide"><span>描述</span><textarea maxLength={160} value={form.description} onChange={(event) => updateField('description', event.target.value)} placeholder="補充這筆支出的內容" /></label>
-                <label><span>金額</span><input required min="0.01" step="0.01" type="number" value={form.amount} onChange={(event) => updateField('amount', event.target.value)} placeholder="0" /></label>
-                <label><span>幣別</span><select value={form.currency} onChange={(event) => updateField('currency', event.target.value)}><option value="JPY">日圓 JPY</option><option value="TWD">台幣 TWD</option></select></label>
-                <label><span>付款方式</span><select value={form.paymentMethod} onChange={(event) => updateField('paymentMethod', event.target.value)}>{paymentMethods.map((method) => <option key={method}>{method}</option>)}</select></label>
-                {isShared && <label className="expense-payment-status"><span className="expense-checkbox-label"><input type="checkbox" checked={form.paymentStatus === 'paid'} disabled={Boolean(isEditing && form.paymentStatus === 'paid')} title={isEditing && form.paymentStatus === 'paid' ? '已先付款的公帳不可更改' : undefined} onChange={(event) => updateField('paymentStatus', event.target.checked ? 'paid' : 'unpaid')} /><strong>已先付款</strong></span></label>}
+                <label className="expense-amount-field"><span>金額</span><input required min="0.01" step="0.01" type="number" value={form.amount} onChange={(event) => updateField('amount', event.target.value)} placeholder="0" /></label>
+                <label className="expense-currency-field"><span>幣別</span><select value={form.currency} onChange={(event) => updateField('currency', event.target.value)}><option value="JPY">日圓 JPY</option><option value="TWD">台幣 TWD</option></select></label>
+                {isShared ? (
+                    <div className="expense-payment-row">
+                        <label className="expense-payment-method-field"><span>付款方式</span><select value={form.paymentMethod} onChange={(event) => updateField('paymentMethod', event.target.value)}>{paymentMethods.map((method) => <option key={method}>{method}</option>)}</select></label>
+                        <label className="expense-payment-status"><span className="expense-checkbox-label"><input type="checkbox" checked={form.paymentStatus === 'paid'} disabled={Boolean(isEditing && form.paymentStatus === 'paid')} title={isEditing && form.paymentStatus === 'paid' ? '已先付款的公帳不可更改' : undefined} onChange={(event) => updateField('paymentStatus', event.target.checked ? 'paid' : 'unpaid')} /><strong>已付</strong></span></label>
+                    </div>
+                ) : <label className="expense-payment-method-field"><span>付款方式</span><select value={form.paymentMethod} onChange={(event) => updateField('paymentMethod', event.target.value)}>{paymentMethods.map((method) => <option key={method}>{method}</option>)}</select></label>}
             </div>
-            <div className="expense-form-actions"><button className="secondary-button" type="button" onClick={onCancel}>取消</button><button className="primary-button" type="submit" disabled={working}>{working ? '儲存中…' : '儲存帳目'}</button></div>
+            <div className="expense-form-actions"><button className="primary-button" type="submit" disabled={working}>{working ? '儲存中…' : '儲存帳目'}</button></div>
         </form>
     );
 }
@@ -454,9 +455,16 @@ function SharedExpenseCard({ expense, user, onJoin, onLeave, onEdit, onRemove, o
     const isOwner = expense.creatorId === user.uid;
     const personalAmount = expenseSharesInMinorUnits(expense).find(({ participant }) => participant.uid === user.uid)?.amount;
     const paid = isExpensePaid(expense);
+    const creatorParticipant = participants.find((participant) => participant.uid === expense.creatorId) || {
+        uid: expense.creatorId,
+        name: expense.creatorName || '建立者',
+        photoURL: '',
+        settled: paid,
+    };
     const myShareSettled = currentParticipant ? (currentParticipant.uid === expense.creatorId ? paid : currentParticipant.settled) : false;
-    const visibleParticipants = participants.slice(0, 5);
-    const hiddenParticipants = participants.slice(5);
+    const memberParticipants = participants.filter((participant) => participant.uid !== expense.creatorId);
+    const visibleParticipants = memberParticipants.slice(0, 5);
+    const hiddenParticipants = memberParticipants.slice(5);
 
     function canToggleParticipant(participant) {
         return isOwner && (participant.uid !== expense.creatorId || !participant.settled);
@@ -487,6 +495,18 @@ function SharedExpenseCard({ expense, user, onJoin, onLeave, onEdit, onRemove, o
                         >
                             <Pencil size={15} />
                         </button>
+                        {isOwner && firstUnsettled && (
+                            <button
+                                className="expense-icon-action expense-icon-action-settle"
+                                type="button"
+                                aria-label="開啟結清標記"
+                                title={`標記${firstUnsettled.name || '成員'}為已結清`}
+                                onClick={() => onSelectParticipant(expense, firstUnsettled)}
+                                disabled={working}
+                            >
+                                <BadgeCheck size={16} />
+                            </button>
+                        )}
                         {!expense.locked && (
                             <button
                                 className="expense-icon-action expense-icon-action-lock"
@@ -519,7 +539,23 @@ function SharedExpenseCard({ expense, user, onJoin, onLeave, onEdit, onRemove, o
                 <span><Users size={14} />{participants.length} 人均分</span>
                 <span><Wallet size={14} />{expense.paymentMethod}</span>
                 <span><Receipt size={14} />{paid ? `付款人：${expense.creatorName}` : '尚未付款'}</span>
-                <div className="expense-meta-participants" aria-label="分帳成員">
+                <div className="expense-meta-participants" aria-label="公帳建立者">
+                    <div className="expense-avatar-row">
+                        <ParticipantAvatar participant={creatorParticipant} isPayer onSelect={() => onSelectParticipant(expense, creatorParticipant)} />
+                    </div>
+                </div>
+            </div>
+            <div className="expense-finance-row">
+                <div className="expense-split-summary">
+                    <div><span>原始金額</span><strong>{formatAmount(expense.amount, expense.currency)}</strong></div>
+                    <div>
+                        <span>我的分攤</span>
+                        {currentParticipant ? <div className="expense-share-value"><strong>{formatAmount(personalAmount / (expense.currency === 'JPY' ? 1 : 100), expense.currency)}</strong><span className={`expense-share-status${myShareSettled ? ' is-settled' : ' is-unsettled'}`} aria-label={myShareSettled ? '已結清' : '尚未結清'}>{myShareSettled ? <Check size={15} /> : <X size={15} />}</span></div> : <strong className="expense-not-joined">加入後計算</strong>}
+                    </div>
+                </div>
+            </div>
+            <div className="expense-card-footer">
+                <div className="expense-card-participants" aria-label="參與分帳成員">
                     <div className="expense-avatar-row">
                         {visibleParticipants.map((participant) => (
                             <ParticipantAvatar
@@ -543,30 +579,7 @@ function SharedExpenseCard({ expense, user, onJoin, onLeave, onEdit, onRemove, o
                         )}
                     </div>
                 </div>
-            </div>
-            <div className="expense-finance-row">
-                <div className="expense-split-summary">
-                    <div><span>原始金額</span><strong>{formatAmount(expense.amount, expense.currency)}</strong></div>
-                    <div>
-                        <span>我的分攤</span>
-                        {currentParticipant ? <div className="expense-share-value"><strong>{formatAmount(personalAmount / (expense.currency === 'JPY' ? 1 : 100), expense.currency)}</strong><span className={`expense-share-status${myShareSettled ? ' is-settled' : ' is-unsettled'}`} aria-label={myShareSettled ? '已結清' : '尚未結清'}>{myShareSettled ? <Check size={15} /> : <X size={15} />}</span></div> : <strong className="expense-not-joined">加入後計算</strong>}
-                    </div>
-                </div>
-            </div>
-            <div className="expense-card-footer">
                 <div className="expense-card-actions">
-                    {/* 建立者快捷標記結清按鈕 */}
-                    {isOwner && firstUnsettled && (
-                        <button
-                            className="secondary-button"
-                            type="button"
-                            aria-label="標記結清"
-                            onClick={() => onSelectParticipant(expense, firstUnsettled)}
-                            disabled={working}
-                        >
-                            <Check size={14} />標記結清
-                        </button>
-                    )}
                     {/* 非參與者：若已鎖定則禁止加入，否則可加入分帳 */}
                     {!currentParticipant && (
                         expense.locked ? (
@@ -828,6 +841,9 @@ function ExpenseTripDialog({ user, expenseStore, trip, expenseData, jpyToTwd, ra
     const activeSettlingParticipant = activeSettlingExpense && settlingTarget ? participantEntries(activeSettlingExpense).find((p) => p.uid === settlingTarget.participant.uid) || settlingTarget.participant : null;
     const activeLockingExpense = lockingExpense ? sharedExpenses.find((e) => e.id === lockingExpense.id) || lockingExpense : null;
     const activeOverflowExpense = participantsListExpense ? sharedExpenses.find((e) => e.id === participantsListExpense.id) || participantsListExpense : null;
+    const expenseFormTitle = editingExpense
+        ? (formKind === 'shared' ? '編輯公帳' : '編輯個人帳')
+        : (formKind === 'shared' ? '新增公帳' : '新增個人帳');
 
     return (
         <div className="expense-modal-backdrop">
@@ -851,7 +867,6 @@ function ExpenseTripDialog({ user, expenseStore, trip, expenseData, jpyToTwd, ra
                         {rateError && <div className="expense-notice expense-notice-error">即時匯率暫時無法取得，金額暫以原幣別顯示。</div>}
                         {error && <div className="expense-notice expense-notice-error">{error}</div>}
                         {notice && <div className="expense-notice expense-notice-success">{notice}</div>}
-                        {formKind && <ExpenseForm kind={formKind} initialValue={formInitialValue} isEditing={Boolean(editingExpense)} onSubmit={saveExpense} onCancel={resetForm} working={working} />}
                         {loadState === 'loading' ? <div className="expense-empty">正在讀取此旅行的帳目…</div> : view === 'shared' ? (
                             <div className="expense-list">{sharedExpenses.length ? sharedExpenses.map((expense) => <SharedExpenseCard key={expense.id} expense={expense} user={user} onJoin={() => joinExpense(expense)} onLeave={() => leaveExpense(expense)} onEdit={() => openEdit('shared', expense)} onRemove={() => removeExpense('shared', expense)} onSelectParticipant={handleSelectParticipant} onOpenLock={(targetExpense) => setLockingExpense(targetExpense)} working={working} />) : <div className="expense-empty"><Receipt size={26} /><strong>還沒有公帳</strong><span>先建立這趟旅行的第一筆公帳。</span></div>}</div>
                         ) : <div className="expense-list">{personalExpenses.length ? personalExpenses.map((expense) => <PersonalExpenseCard key={expense.id} expense={expense} onEdit={() => openEdit('personal', expense)} onRemove={() => removeExpense('personal', expense)} working={working} />) : <div className="expense-empty"><Wallet size={26} /><strong>還沒有個人帳目</strong><span>記下這趟旅行中只屬於自己的支出。</span></div>}</div>}
@@ -859,6 +874,19 @@ function ExpenseTripDialog({ user, expenseStore, trip, expenseData, jpyToTwd, ra
                     </section>
                 </div>
             </section>
+
+            {formKind && (
+                <Modal
+                    isOpen
+                    onClose={resetForm}
+                    eyebrow={`${trip.country || 'TRIP'} · ${formKind === 'shared' ? 'SHARED EXPENSE' : 'PERSONAL EXPENSE'}`}
+                    title={expenseFormTitle}
+                    maxWidth="720px"
+                    className="expense-entry-form-modal"
+                >
+                    <ExpenseForm kind={formKind} initialValue={formInitialValue} isEditing={Boolean(editingExpense)} onSubmit={saveExpense} working={working} />
+                </Modal>
+            )}
 
             {transferModalOpen && view === 'shared' && (
                 <Modal
