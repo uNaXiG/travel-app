@@ -3,6 +3,7 @@ import {
   onValue,
   push,
   ref,
+  runTransaction,
   serverTimestamp,
   update,
 } from 'firebase/database';
@@ -13,6 +14,47 @@ import { buildTripDeletionUpdates, isTripOwner } from './travel/travelUtils.js';
 function requireDatabase() {
   if (!db) throw new Error('請在根目錄 .env 設定 Firebase Realtime Database。');
   return db;
+}
+
+function tripRecordsFrom(value, legacyFields) {
+  if (Array.isArray(value)) return value.filter((record) => record && typeof record === 'object');
+  if (!value || typeof value !== 'object') return [];
+  if (legacyFields.some((field) => value[field] !== undefined && value[field] !== null && value[field] !== '')) return [value];
+  return Object.values(value).filter((record) => record && typeof record === 'object');
+}
+
+async function appendTripRecord(tripId, section, record, legacyFields) {
+  const database = requireDatabase();
+  const recordsRef = ref(database, `trips/${tripId}/${section}`);
+  const formId = push(recordsRef).key;
+  const result = await runTransaction(recordsRef, (current) => [
+    ...tripRecordsFrom(current, legacyFields),
+    { ...record, formId, saved: true },
+  ]);
+  if (!result.committed) throw new Error('資料未能儲存，請稍後再試。');
+  await update(ref(database), { [`trips/${tripId}/updatedAt`]: serverTimestamp() });
+  return formId;
+}
+
+async function removeTripRecord(tripId, section, record, legacyFields, identityFields) {
+  const database = requireDatabase();
+  const recordsRef = ref(database, `trips/${tripId}/${section}`);
+  let removed = false;
+  const result = await runTransaction(recordsRef, (current) => {
+    const records = tripRecordsFrom(current, legacyFields);
+    const recordIndex = records.findIndex((candidate) => (
+      (record.formId && candidate.formId === record.formId)
+      || identityFields.every((field) => (candidate[field] ?? '') === (record[field] ?? ''))
+    ));
+    if (recordIndex < 0) {
+      removed = false;
+      return;
+    }
+    removed = true;
+    return records.filter((_, index) => index !== recordIndex);
+  });
+  if (!result.committed || !removed) throw new Error('找不到要刪除的資料，請重新整理後再試。');
+  await update(ref(database), { [`trips/${tripId}/updatedAt`]: serverTimestamp() });
 }
 
 export const travelStore = {
@@ -94,6 +136,22 @@ export const travelStore = {
       [`users/${uid}/trips/${tripId}`]: { joinedAt: serverTimestamp() },
     });
     return tripId;
+  },
+
+  addFlight(tripId, flight) {
+    return appendTripRecord(tripId, 'flights', flight, ['airline', 'departureAirport', 'arrivalAirport', 'date', 'fare', 'route']);
+  },
+
+  addLodging(tripId, lodging) {
+    return appendTripRecord(tripId, 'lodging', lodging, ['name', 'address', 'checkIn', 'checkOut', 'price', 'note', 'coverImage']);
+  },
+
+  removeFlight(tripId, flight) {
+    return removeTripRecord(tripId, 'flights', flight, ['airline', 'date', 'departureAirport', 'arrivalAirport', 'fare'], ['airline', 'date', 'departureAirport', 'arrivalAirport', 'fare']);
+  },
+
+  removeLodging(tripId, lodging) {
+    return removeTripRecord(tripId, 'lodging', lodging, ['name', 'address', 'checkIn', 'checkOut', 'price', 'note', 'coverImage'], ['name', 'address', 'checkIn', 'checkOut', 'price', 'note', 'coverImage']);
   },
 
   async deleteTrip(uid, tripId) {

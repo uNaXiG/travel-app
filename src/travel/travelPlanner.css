@@ -15,7 +15,6 @@
 .planner-inline-actions,
 .planner-date-strip,
 .planner-steps,
-.planner-back,
 .planner-primary,
 .planner-secondary,
 .planner-add-event {
@@ -283,24 +282,25 @@
 }
 
 .participant-stack--hero .participant-avatar {
-  width: 40px;
-  height: 40px;
+  width: 30px;
+  height: 30px;
   border-color: #e0e6e0;
-  box-shadow: 0 2px 8px #0006;
+  box-shadow: 0 1px 4px #0005;
 }
 
 .participant-stack--hero .participant-avatar-row>*+* {
-  margin-left: -11px;
+  margin-left: -8px;
 }
 
 .participant-stack--hero .participant-avatar-initial,
 .participant-stack--hero .participant-avatar-overflow {
-  font-size: 13px;
+  font-size: 10px;
 }
 
 .participant-stack--hero .participant-names {
   right: 0;
-  bottom: calc(100% + 8px);
+  top: calc(100% + 8px);
+  bottom: auto;
 }
 
 .travel-card-content>* {
@@ -383,11 +383,15 @@
 .travel-card-id {
   display: flex;
   min-width: 0;
+  flex: 1 1 auto;
   align-items: center;
-  gap: 7px;
-  margin-top: 4px;
+  gap: 8px;
   color: var(--planner-rust);
   font-size: 11px;
+}
+
+.travel-card-id-value {
+  min-width: 0;
   overflow-wrap: anywhere;
 }
 
@@ -404,7 +408,7 @@
 }
 
 .travel-card-date {
-  margin-top: 13px;
+  margin-top: 4px;
   color: #c9d1d2;
   font-size: 12px;
 }
@@ -415,10 +419,19 @@
   font-size: 11px;
 }
 
-.travel-card-open {
-  align-self: flex-end;
+.travel-card-footer {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
   margin-top: auto;
   padding-top: 12px;
+}
+
+.travel-card-open {
+  flex: 0 0 auto;
   color: var(--planner-green);
   font-size: 12px;
   font-weight: 700;
@@ -789,24 +802,24 @@
   line-height: 1.6;
 }
 
-.planner-back {
-  gap: 7px;
-  margin: 0 0 20px;
-  padding: 0;
-  color: var(--planner-muted);
-  background: none;
-  border: 0;
-  font: inherit;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.planner-back:hover {
-  color: var(--planner-green);
+.planner-create-back {
+  position: sticky;
+  top: 74px;
+  z-index: 25;
+  width: fit-content;
+  margin: -10px 0 16px;
 }
 
 .planner-heading {
   margin-bottom: 25px;
+}
+
+@media (max-width: 760px) {
+  .planner-create-back {
+    top: 62px;
+    margin-top: -6px;
+    margin-bottom: 12px;
+  }
 }
 
 .planner-steps {
@@ -885,6 +898,41 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px 16px;
+}
+
+.trip-record-form .planner-fields-grid {
+  gap: 14px 16px;
+}
+
+.trip-record-form-lodging .lodging-editor-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.trip-record-form-lodging .lodging-half-field {
+  grid-column: span 3;
+}
+
+.trip-record-form-lodging .lodging-third-field {
+  grid-column: span 2;
+}
+
+.trip-record-form-flight-footer {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+  gap: 14px 16px;
+}
+
+.trip-record-form-flight-footer .planner-inline-actions,
+.trip-record-form-lodging .planner-inline-actions {
+  width: 100%;
+  margin-top: 0;
+}
+
+.trip-record-form-flight-footer .planner-primary,
+.trip-record-form-lodging .planner-primary {
+  width: 100%;
+  min-height: 42px;
 }
 
 .planner-field {
@@ -1603,6 +1651,15 @@
   border-radius: 5px;
 }
 
+.overview-event-form.overview-event-modal-form {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
 .trip-info-empty {
   margin: 16px 0;
   padding: 19px;
@@ -1666,6 +1723,19 @@
 
   .planner-repeat-card .lodging-editor-grid .planner-field-wide {
     grid-column: 1 / -1;
+  }
+
+  .trip-record-form-flight-footer {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .trip-record-form-lodging .lodging-editor-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .trip-record-form-lodging .lodging-half-field,
+  .trip-record-form-lodging .lodging-third-field {
+    grid-column: span 1;
   }
 }
 

@@ -4,7 +4,7 @@ import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, v
 import { CSS } from '@dnd-kit/utilities';
 import ExpensePage from './ExpensePage.jsx';
 import Modal from './Modal.jsx';
-import TravelPlanner, { ParticipantAvatarStack, TravelIdCopyButton } from './TravelPlanner.jsx';
+import TravelPlanner, { AirportField, emptyFlight, emptyLodging, Field, ImageUploadField, loadSelectedImage, ParticipantAvatarStack, TravelIdCopyButton } from './TravelPlanner.jsx';
 import { getAirportLabel } from './airports.js';
 import { getDailyLocationOptions } from './locationMapping.js';
 import { travelStore } from '../travelStore.js';
@@ -73,15 +73,30 @@ function tripSummaryDateRange(trip) {
   return `${startDate}～${endDate}`;
 }
 
-function TripSummaryRow({ trip, icon: Icon, countLabel, isExpanded, onToggle }) {
+function TripSummaryRow({ trip, icon: Icon, countLabel, variant, onOpen }) {
   return (
-    <button className={`trip-summary-row${isExpanded ? ' is-expanded' : ''}`} type="button" onClick={onToggle} aria-expanded={isExpanded} aria-controls={`trip-details-${trip.id}`}>
+    <button className={`trip-summary-row trip-summary-row-${variant}`} type="button" onClick={onOpen} aria-haspopup="dialog">
       <span className="trip-summary-icon"><Icon size={18} /></span>
-      <span className="trip-summary-main"><strong>{trip.title}</strong><small>旅行 ID · {trip.id}</small></span>
+      <span className="trip-summary-main"><strong>{trip.title}</strong></span>
       <span className="trip-summary-dates">{tripSummaryDateRange(trip)}</span>
       <span className="trip-summary-count">{countLabel}</span>
-      <ChevronDown className="trip-summary-chevron" size={18} />
+      <ChevronRight className="trip-summary-chevron" size={18} />
     </button>
+  );
+}
+
+function TripInfoModal({ trip, topic, onClose, children }) {
+  return (
+    <Modal
+      isOpen
+      onClose={onClose}
+      eyebrow={`${topic} · ${trip.country || '旅程資訊'}`}
+      title={trip.title}
+      maxWidth="900px"
+      className="trip-info-modal"
+    >
+      {children}
+    </Modal>
   );
 }
 
@@ -104,70 +119,34 @@ function WeatherBadge({ weather }) {
   }
 
   function WeatherIcon() {
+    if (weather.state !== 'ready') return <Cloud className="weather-icon" size={40} strokeWidth={1.75} />;
     const code = weather.weatherCode;
-    if (code === 0) return <Sun className="weather-icon" size={16} />;
-    if ([1, 2, 3].includes(code)) return <Cloud className="weather-icon" size={16} />;
-    if ([45, 48].includes(code)) return <CloudFog className="weather-icon" size={16} />;
-    if ([71, 73, 75, 77, 85, 86].includes(code)) return <Snowflake className="weather-icon" size={16} />;
-    if ([95, 96, 99].includes(code)) return <CloudLightning className="weather-icon" size={16} />;
-    return <CloudRain className="weather-icon" size={16} />;
+    if (code === 0) return <Sun className="weather-icon" size={40} strokeWidth={1.75} />;
+    if ([1, 2, 3].includes(code)) return <Cloud className="weather-icon" size={40} strokeWidth={1.75} />;
+    if ([45, 48].includes(code)) return <CloudFog className="weather-icon" size={40} strokeWidth={1.75} />;
+    if ([71, 73, 75, 77, 85, 86].includes(code)) return <Snowflake className="weather-icon" size={40} strokeWidth={1.75} />;
+    if ([95, 96, 99].includes(code)) return <CloudLightning className="weather-icon" size={40} strokeWidth={1.75} />;
+    return <CloudRain className="weather-icon" size={40} strokeWidth={1.75} />;
   }
 
   if (!weather) return null;
 
-  if (weather.state === 'loading') {
-    return (
-      <div className="day-weather" aria-label="天氣讀取中">
-        <div className="weather-place">
-          <strong>天氣</strong>
-          <span>讀取中</span>
-        </div>
-        <span className="weather-dot" aria-hidden="true" />
-        <strong className="weather-temp">--</strong>
-        <span className="weather-condition"><span className="weather-main">取得資料中…</span></span>
-      </div>
-    );
-  }
-
-  if (weather.state === 'error') {
-    return (
-      <div className="day-weather weather-error" aria-label="天氣讀取失敗">
-        <div className="weather-place">
-          <strong>天氣</strong>
-          <span>暫時無法取得</span>
-        </div>
-        <Cloud className="weather-icon" size={16} />
-        <strong className="weather-temp">--</strong>
-        <span className="weather-condition"><span className="weather-main">請稍後再試</span></span>
-      </div>
-    );
-  }
-
-  if (weather.state === 'out_of_range') {
-    return (
-      <div className="day-weather" aria-label="天氣超出預報範圍">
-        <div className="weather-place">
-          <strong>{weather.city || '天氣'}</strong>
-          <span>{weather.displayName || '每日地點'}</span>
-        </div>
-        <Cloud className="weather-icon" size={16} />
-        <strong className="weather-temp">--</strong>
-        <span className="weather-condition"><span className="weather-main">{weather.message || '尚未開放預報'}</span></span>
-      </div>
-    );
-  }
-
-  if (weather.state !== 'ready') return null;
+  const conditionText = weather.state === 'loading'
+    ? '讀取中'
+    : weather.state === 'error'
+      ? '請稍後再試'
+      : weather.state === 'out_of_range'
+        ? weather.message || '尚未開放預報'
+        : weather.condition;
+  const temperatureText = weather.state === 'ready' ? weather.temperatureText : '--';
 
   return (
-    <div className="day-weather" aria-label={`${weather.displayName}天氣`}>
-      <div className="weather-place">
-        <strong>{weather.city}</strong>
-        <span>{weather.displayName}</span>
+    <div className={`day-weather${weather.state === 'error' ? ' weather-error' : ''}`} aria-label={`${conditionText}天氣`}>
+      <div className="weather-icon-wrap"><WeatherIcon /></div>
+      <div className="weather-info">
+        <strong className="weather-temp">{temperatureText}</strong>
+        <WeatherCondition text={conditionText} />
       </div>
-      <WeatherIcon />
-      <strong className="weather-temp">{weather.temperatureText}</strong>
-      <WeatherCondition text={weather.condition} />
     </div>
   );
 }
@@ -256,7 +235,7 @@ function EventCard({ event, onUpdate, onDelete }) {
             </div>
             <p>{event.description}</p>
             {event.tip && <div className="guide-tip"><Sparkles size={14} /><span>{event.tip}</span></div>}
-            {event.location && <a className="map-link" href={mapsUrl(event.location)} target="_blank" rel="noreferrer"><MapPin size={14} />地點預覽 <ArrowRight size={14} /></a>}
+            {event.location && <a className="map-link" href={mapsUrl(event.location)} target="_blank" rel="noreferrer"><MapPin size={14} />查看地圖 <ArrowRight size={14} /></a>}
             {error && <p className="planner-error" role="alert">{error}</p>}
           </>
         )}
@@ -265,7 +244,7 @@ function EventCard({ event, onUpdate, onDelete }) {
   );
 }
 
-function DayCard({ day, weather, isOpen, onToggle, onAddEvent, onUpdateEvent, onDeleteEvent, onUpdateDetails }) {
+function DayCard({ day, weather, isOpen, onToggle, onAddEvent, onUpdateEvent, onDeleteEvent, onUpdateDetails, onEditDetails }) {
   const [addOpen, setAddOpen] = useState(false);
   const [eventDraft, setEventDraft] = useState({ title: '', description: '', startTime: '', endTime: '', address: '', type: 'sight' });
   const [savingEvent, setSavingEvent] = useState(false);
@@ -301,6 +280,14 @@ function DayCard({ day, weather, isOpen, onToggle, onAddEvent, onUpdateEvent, on
     }
   }
 
+  function startSummaryEdit() {
+    setSummaryError('');
+    setLocationKeyDraft(day.location?.key || '');
+    setSummaryDraft(day.summary || '');
+    onEditDetails?.(day.id);
+    setSummaryEditing(true);
+  }
+
   function cancelSummaryEdit() {
     setLocationKeyDraft(day.location?.key || '');
     setSummaryDraft(day.summary || '');
@@ -324,30 +311,40 @@ function DayCard({ day, weather, isOpen, onToggle, onAddEvent, onUpdateEvent, on
   }
 
   return (
-    <article className={`day-card${isOpen ? ' day-open' : ''}`}>
-      <div id={`day-card-heading-${day.id}`} className="day-card-heading">
-        <button className="day-card-toggle" type="button" onClick={onToggle} aria-label={`${isOpen ? '收合' : '展開'}第 ${day.id} 天行程`} aria-expanded={isOpen} aria-controls={`day-card-body-${day.id}`} />
-        <span className="day-index">{String(day.id).padStart(2, '0')}</span>
-        <span className="day-title-group">
-          <span className="day-date">{day.weekday}　·　{day.date}</span>
-          <span className="day-title-line"><span className="day-title">{day.title}</span>{onUpdateDetails && <button className="day-title-edit-button" type="button" aria-label={`編輯第 ${day.id} 天地點與摘要`} title="編輯每日地點與摘要" onClick={() => { setSummaryError(''); setLocationKeyDraft(day.location?.key || ''); setSummaryDraft(day.summary || ''); setSummaryEditing(true); }}><Pencil size={15} /></button>}</span>
-          <span className="day-area"><MapPin size={12} />{day.area}</span>
-        </span>
-        <WeatherBadge weather={weather} />
-        <ChevronDown className="day-chevron" size={18} />
-      </div>
-      {isOpen && (
-        <div id={`day-card-body-${day.id}`} className="day-card-body">
-          {summaryEditing ? <form className="day-summary-edit-form" onSubmit={saveDayDetails}>
-            <label className="planner-field"><span>第 {day.id} 天主要地點</span><select autoFocus value={locationKeyDraft} onChange={(event) => setLocationKeyDraft(event.target.value)}><option value="">請選擇主要地點</option>{dailyLocationOptions.map((location) => <option key={location.key} value={location.key}>{location.displayName}</option>)}</select></label>
-            <label className="planner-field"><span>第 {day.id} 天摘要</span><textarea rows={3} maxLength={500} value={summaryDraft} onChange={(event) => setSummaryDraft(event.target.value)} placeholder="單獨記下這一天的重點或安排。" /></label>
-            {summaryError && <p className="planner-error" role="alert">{summaryError}</p>}
-            <div className="day-summary-actions"><button className="planner-primary" type="submit" disabled={summarySaving}>{summarySaving ? '儲存中…' : <><Check size={15} />儲存每日資訊</>}</button><button className="planner-secondary" type="button" onClick={cancelSummaryEdit} disabled={summarySaving}><ArrowLeft size={15} />取消</button></div>
-          </form> : <div className="day-summary-row"><p className={`day-summary${day.summary ? '' : ' is-empty'}`}>{day.summary || '尚未新增每日摘要。'}</p></div>}
-          <div className="schedule-list">
-            {day.events.map((event, index) => <EventCard event={event} key={event.id || `${day.id}-${index}`} onUpdate={onUpdateEvent ? (eventId, draft) => onUpdateEvent(eventId, draft) : undefined} onDelete={onDeleteEvent ? (eventId) => onDeleteEvent(eventId) : undefined} />)}
+    <>
+      <article className={`day-card${isOpen ? ' day-open' : ''}`}>
+        <div id={`day-card-heading-${day.id}`} className="day-card-heading">
+          <button className="day-card-toggle" type="button" onClick={onToggle} aria-label={`${isOpen ? '收合' : '展開'}第 ${day.id} 天行程`} aria-expanded={isOpen} aria-controls={`day-card-body-${day.id}`} />
+          <span className="day-index">{String(day.id).padStart(2, '0')}</span>
+          <div className="day-title-group">
+            <div className="day-title-line"><span className="day-date"><span>{day.weekday}</span><span>{day.date}</span></span></div>
+            <div className="day-area">
+              <MapPin size={12} />
+              <span className="day-area-name">{day.area}</span>
+              {onUpdateDetails && <button className="day-area-edit-button" type="button" aria-label={`編輯第 ${day.id} 天地點與摘要`} title="編輯每日地點與摘要" onClick={startSummaryEdit}><Pencil size={14} /></button>}
+            </div>
           </div>
-          {onAddEvent && (addOpen ? <form className="overview-event-form" onSubmit={submitEvent}>
+          <WeatherBadge weather={weather} />
+          <ChevronDown className="day-chevron" size={18} />
+        </div>
+        {isOpen && (
+          <div id={`day-card-body-${day.id}`} className="day-card-body">
+            <div className="day-summary-row"><p className={`day-summary${day.summary ? '' : ' is-empty'}`}>{day.summary || '尚未新增每日摘要。'}</p></div>
+            <div className="schedule-list">
+              {day.events.map((event, index) => <EventCard event={event} key={event.id || `${day.id}-${index}`} onUpdate={onUpdateEvent ? (eventId, draft) => onUpdateEvent(eventId, draft) : undefined} onDelete={onDeleteEvent ? (eventId) => onDeleteEvent(eventId) : undefined} />)}
+            </div>
+            {onAddEvent && <button className="planner-add-event overview-add-event" type="button" onClick={() => { setEventError(''); setAddOpen(true); }}><Plus size={17} />加入行程</button>}
+            {day.guide && <aside className="guide-panel">
+              <div className="guide-heading"><Sparkles size={16} /><strong>小導遊筆記</strong><span>依行程整理</span></div>
+              <p>{day.guide}</p>
+              <a href={guideSearch} target="_blank" rel="noreferrer">搜尋景點故事與攻略 <ExternalLink size={14} /></a>
+            </aside>}
+          </div>
+        )}
+      </article>
+      {addOpen && (
+        <Modal isOpen onClose={() => setAddOpen(false)} eyebrow={`DAY ${day.id} · ${day.date}`} title="加入行程" maxWidth="760px" className="overview-event-modal">
+          <form className="overview-event-form overview-event-modal-form" onSubmit={submitEvent}>
             <div className="planner-fields-grid">
               <label className="planner-field"><span>行程標題</span><input value={eventDraft.title} onChange={(event) => setEventDraft((current) => ({ ...current, title: event.target.value }))} required maxLength={100} /></label>
               <label className="planner-field"><span>行程類型</span><select value={eventDraft.type} onChange={(event) => setEventDraft((current) => ({ ...current, type: event.target.value }))}>{itineraryTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
@@ -357,18 +354,21 @@ function DayCard({ day, weather, isOpen, onToggle, onAddEvent, onUpdateEvent, on
               <label className="planner-field"><span>結束時間</span><input type="time" value={eventDraft.endTime} onChange={(event) => setEventDraft((current) => ({ ...current, endTime: event.target.value }))} /></label>
             </div>
             {eventError && <p className="planner-error" role="alert">{eventError}</p>}
-            <div className="planner-inline-actions"><button className="planner-primary" type="submit" disabled={savingEvent || !eventDraft.title.trim()}>{savingEvent ? '儲存中…' : <><Plus size={15} />加入行程</>}</button><button className="planner-secondary" type="button" onClick={() => setAddOpen(false)}>取消</button></div>
-          </form> : <button className="planner-add-event overview-add-event" type="button" onClick={() => setAddOpen(true)}><Plus size={17} />加入行程</button>)}
-          {day.guide && <aside className="guide-panel">
-            <div className="guide-heading"><Sparkles size={16} /><strong>小導遊筆記</strong><span>依行程整理</span></div>
-            <p>{day.guide}</p>
-            <a href={guideSearch} target="_blank" rel="noreferrer">
-              搜尋景點故事與攻略 <ExternalLink size={14} />
-            </a>
-          </aside>}
-        </div>
+            <div className="planner-inline-actions"><button className="planner-primary" type="submit" disabled={savingEvent || !eventDraft.title.trim()}>{savingEvent ? '儲存中…' : <><Plus size={15} />加入行程</>}</button></div>
+          </form>
+        </Modal>
       )}
-    </article>
+      {summaryEditing && (
+        <Modal isOpen onClose={cancelSummaryEdit} eyebrow={`DAILY ITINERARY · ${day.weekday} · ${day.date}`} title="編輯每日資訊" maxWidth="560px" className="day-summary-edit-modal">
+          <form className="day-summary-edit-form" onSubmit={saveDayDetails}>
+            <label className="planner-field"><span>第 {day.id} 天主要地點</span><select autoFocus value={locationKeyDraft} onChange={(event) => setLocationKeyDraft(event.target.value)}><option value="">請選擇主要地點</option>{dailyLocationOptions.map((location) => <option key={location.key} value={location.key}>{location.displayName}</option>)}</select></label>
+            <label className="planner-field"><span>第 {day.id} 天摘要</span><textarea rows={3} maxLength={500} value={summaryDraft} onChange={(event) => setSummaryDraft(event.target.value)} placeholder="單獨記下這一天的重點或安排。" /></label>
+            {summaryError && <p className="planner-error" role="alert">{summaryError}</p>}
+            <div className="day-summary-actions"><button className="planner-primary" type="submit" disabled={summarySaving}>{summarySaving ? '儲存中…' : <><Check size={15} />儲存每日資訊</>}</button></div>
+          </form>
+        </Modal>
+      )}
+    </>
   );
 }
 
@@ -511,6 +511,11 @@ function TripOverview({ trip, onAddEvent, onUpdateEvent, onDeleteEvent, onUpdate
     setPendingScrollDay(willOpen ? dayId : null);
   }
 
+  function openDayForEditing(dayId) {
+    setOpenDay(dayId);
+    setPendingScrollDay(dayId);
+  }
+
   return (
     <>
       <div className="overview-back-bar">
@@ -547,7 +552,7 @@ function TripOverview({ trip, onAddEvent, onUpdateEvent, onDeleteEvent, onUpdate
         <p className="weather-disclaimer"><Info size={14} />天氣依每日地點自動查詢，可能受資料來源與查詢時間影響。</p>
         <div className="day-list">
           {days.map((day) => (
-            <DayCard key={day.id} day={day} weather={weatherByDate[day.date]} isOpen={openDay === day.id} onToggle={() => toggleDay(day.id)} onAddEvent={onAddEvent} onUpdateDetails={onUpdateDetails} onUpdateEvent={(eventId, draft) => onUpdateEvent(day.date, eventId, draft)} onDeleteEvent={(eventId) => onDeleteEvent(day.date, eventId)} />
+            <DayCard key={day.id} day={day} weather={weatherByDate[day.date]} isOpen={openDay === day.id} onToggle={() => toggleDay(day.id)} onAddEvent={onAddEvent} onUpdateDetails={onUpdateDetails} onEditDetails={openDayForEditing} onUpdateEvent={(eventId, draft) => onUpdateEvent(day.date, eventId, draft)} onDeleteEvent={(eventId) => onDeleteEvent(day.date, eventId)} />
           ))}
         </div>
       </section>
@@ -709,7 +714,6 @@ function PackingTripModal({ trip, user, packingStore, data, onClose }) {
     <Modal
       isOpen
       onClose={onClose}
-      eyebrow={`旅行 ID · ${trip.id}`}
       title={trip.title}
       ariaLabelledBy="packing-modal-title"
       maxWidth="640px"
@@ -839,7 +843,7 @@ function PackingListPage({ user, packingStore, trips }) {
                 aria-label={`開啟${trip.title}的攜帶清單${isLoading ? '' : `，完成進度 ${percentage}%`}`}
               >
                 <span className="trip-summary-icon"><ClipboardList size={18} /></span>
-                <span className="trip-summary-main"><strong>{trip.title}</strong><small>旅行 ID · {trip.id}</small></span>
+                <span className="trip-summary-main"><strong>{trip.title}</strong></span>
                 <span className="packing-summary-progress">
                   {isLoading ? (
                     <small className="packing-summary-progress-loading">讀取中…</small>
@@ -874,23 +878,143 @@ function PackingListPage({ user, packingStore, trips }) {
   );
 }
 
-function TransportationPage({ trips }) {
-  const [expandedTripId, setExpandedTripId] = useState(null);
-  const flightGroups = groupFlightsByTrip(trips);
+function AddFlightModal({ trip, onClose, onSubmit }) {
+  const [draft, setDraft] = useState(emptyFlight);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  function updateField(field, value) {
+    setDraft((current) => ({ ...current, [field]: value }));
+  }
+
+  async function saveFlight(event) {
+    event.preventDefault();
+    setError('');
+    if (!draft.airline.trim() || !draft.date || !draft.departureAirport || !draft.arrivalAirport || draft.fare === '') {
+      setError('請填寫航空公司、航班日期、出發機場、目的地機場與每人票價。');
+      return;
+    }
+    if (!Number.isFinite(Number(draft.fare)) || Number(draft.fare) <= 0) {
+      setError('每人票價必須是大於 0 的數字。');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await onSubmit(trip.id, draft);
+      onClose();
+    } catch (saveError) {
+      setError(saveError.message || '新增機票失敗，請稍後再試。');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal isOpen onClose={onClose} eyebrow={`${trip.country} · FLIGHT DETAILS`} title="新增機票" maxWidth="760px" className="trip-record-form-modal">
+      <form className="trip-record-form trip-record-form-flight" onSubmit={saveFlight}>
+        <div className="planner-fields-grid flight-editor-grid">
+          <Field label="航空公司" value={draft.airline} onChange={(event) => updateField('airline', event.target.value)} placeholder="航空公司" required />
+          <Field label="航班日期" type="date" value={draft.date} min={trip.startDate} max={trip.endDate} onChange={(event) => updateField('date', event.target.value)} required />
+          <AirportField label="出發機場" value={draft.departureAirport} onChange={(event) => updateField('departureAirport', event.target.value)} placeholder="選擇出發機場" />
+          <AirportField label="目的地機場" value={draft.arrivalAirport} onChange={(event) => updateField('arrivalAirport', event.target.value)} placeholder="選擇目的地機場" />
+          <Field label="出發時間" type="time" value={draft.departureTime} onChange={(event) => updateField('departureTime', event.target.value)} />
+          <Field label="抵達時間" type="time" value={draft.arrivalTime} onChange={(event) => updateField('arrivalTime', event.target.value)} />
+        </div>
+        {error && <p className="planner-error" role="alert">{error}</p>}
+        <div className="trip-record-form-flight-footer">
+          <Field className="flight-fare-field" label="每人票價（TWD）" type="number" min="1" step="1" value={draft.fare} onChange={(event) => updateField('fare', event.target.value)} required />
+          <div className="planner-inline-actions"><button className="planner-primary" type="submit" disabled={saving}>{saving ? '儲存中…' : <><Check size={15} />儲存機票</>}</button></div>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function AddLodgingModal({ trip, onClose, onSubmit }) {
+  const [draft, setDraft] = useState(emptyLodging);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [imageError, setImageError] = useState('');
+
+  function updateField(field, value) {
+    setDraft((current) => ({ ...current, [field]: value }));
+  }
+
+  async function saveLodging(event) {
+    event.preventDefault();
+    setError('');
+    if (!draft.name.trim() || !draft.checkIn || !draft.checkOut || draft.price === '') {
+      setError('請填寫住宿名稱、入住日期、退房日期與住宿金額。');
+      return;
+    }
+    if (draft.checkOut <= draft.checkIn) {
+      setError('退房日期必須晚於入住日期。');
+      return;
+    }
+    if (!Number.isFinite(Number(draft.price)) || Number(draft.price) <= 0) {
+      setError('住宿金額必須是大於 0 的數字。');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await onSubmit(trip.id, draft);
+      onClose();
+    } catch (saveError) {
+      setError(saveError.message || '新增住宿失敗，請稍後再試。');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal isOpen onClose={onClose} eyebrow={`${trip.country} · ACCOMMODATION`} title="新增住宿" maxWidth="760px" className="trip-record-form-modal">
+      <form className="trip-record-form trip-record-form-lodging" onSubmit={saveLodging}>
+        <div className="planner-fields-grid lodging-editor-grid">
+          <Field className="lodging-half-field" label="住宿名稱" value={draft.name} onChange={(event) => updateField('name', event.target.value)} placeholder="飯店或住宿名稱" required />
+          <Field className="lodging-half-field" label="住宿金額（TWD）" type="number" min="1" step="1" value={draft.price} onChange={(event) => updateField('price', event.target.value)} required />
+          <Field className="planner-field-wide" label="住宿地址" value={draft.address} onChange={(event) => updateField('address', event.target.value)} placeholder="完整地址" />
+          <Field className="lodging-half-field" label="入住日期" type="date" value={draft.checkIn} min={trip.startDate} max={draft.checkOut || trip.endDate} onChange={(event) => updateField('checkIn', event.target.value)} required />
+          <Field className="lodging-half-field" label="退房日期" type="date" value={draft.checkOut} min={draft.checkIn || trip.startDate} max={trip.endDate} onChange={(event) => updateField('checkOut', event.target.value)} required />
+          <label className="planner-field planner-field-wide"><span>住宿備註</span><textarea value={draft.note} onChange={(event) => updateField('note', event.target.value)} rows={2} placeholder="入住提醒、訂房資訊等" /></label>
+          <ImageUploadField label="住宿封面圖片" image={draft.coverImage} error={imageError} onChange={(event) => { void loadSelectedImage(event, (coverImage) => updateField('coverImage', coverImage), setImageError); }} onRemove={() => { updateField('coverImage', ''); setImageError(''); }} />
+        </div>
+        {error && <p className="planner-error" role="alert">{error}</p>}
+        <div className="planner-inline-actions"><button className="planner-primary" type="submit" disabled={saving}>{saving ? '儲存中…' : <><Check size={15} />儲存住宿</>}</button></div>
+      </form>
+    </Modal>
+  );
+}
+
+function TransportationPage({ trips, onAddFlight, onDeleteFlight, working }) {
+  const [selectedTripId, setSelectedTripId] = useState(null);
+  const [addingTrip, setAddingTrip] = useState(null);
+  const [deleteError, setDeleteError] = useState('');
+  const flightsByTripId = new Map(groupFlightsByTrip(trips).map(({ trip, flights }) => [trip.id, flights]));
+  const flightGroups = trips.map((trip) => ({ trip, flights: flightsByTripId.get(trip.id) || [] }));
+
+  async function deleteFlight(tripId, flight) {
+    if (!window.confirm(`確定刪除「${flight.airline || '這筆機票'}」嗎？`)) return;
+    setDeleteError('');
+    try {
+      await onDeleteFlight(tripId, flight);
+    } catch (error) {
+      setDeleteError(error.message || '刪除機票失敗，請稍後再試。');
+    }
+  }
+
   return (
     <section className="detail-page">
       <div className="page-heading"><p className="section-eyebrow">GETTING AROUND</p><h1>交通資訊</h1></div>
-      {flightGroups.length ? flightGroups.map(({ trip, flights }) => (
+      {trips.length ? flightGroups.map(({ trip, flights }) => (
         <section className="transport-group trip-disclosure" key={trip.id}>
-          <TripSummaryRow trip={trip} icon={Plane} countLabel={`${flights.length} 張機票`} isExpanded={expandedTripId === trip.id} onToggle={() => setExpandedTripId((current) => current === trip.id ? null : trip.id)} />
-          {expandedTripId === trip.id && <div className="trip-disclosure-details" id={`trip-details-${trip.id}`}>
-            <header className="transport-section-heading">
-              <span className="transport-section-icon"><Plane size={18} /></span>
-              <div><p>FLIGHT DETAILS · {trip.country}</p><h2>{trip.title}</h2></div>
-              <span className="transport-section-side">{trip.id}</span>
-            </header>
-            <div className="flight-list">
-              {flights.map((flight, index) => {
+          <TripSummaryRow trip={trip} icon={Plane} countLabel={`${flights.length} 張機票`} variant="flight" onOpen={() => { setDeleteError(''); setSelectedTripId(trip.id); }} />
+          {selectedTripId === trip.id && (
+            <TripInfoModal trip={trip} topic="FLIGHT DETAILS" onClose={() => setSelectedTripId(null)}>
+              {deleteError && <p className="planner-error trip-record-delete-error" role="alert">{deleteError}</p>}
+              {flights.length ? <div className="flight-list">
+                {flights.map((flight, index) => {
                 const dateParts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(flight.date || '');
                 return (
                   <article className="flight-card" key={`${trip.id}-${flight.formId || flight.direction || index}`}>
@@ -904,40 +1028,57 @@ function TransportationPage({ trips }) {
                       <div className="flight-route-line"><i><Plane size={15} /></i></div>
                       <div><span>目的地機場</span><strong className="flight-airport-name">{flight.arrivalAirport ? getAirportLabel(flight.arrivalAirport) : flight.route?.split(/→|->/)[1]?.trim() || '未設定'}</strong>{(flight.arrivalTime || (!flight.arrivalAirport && flight.arrival)) && <time className="flight-time">{flight.arrivalTime || flight.arrival}</time>}</div>
                     </div>
-                    {flight.fare && <div className="flight-fare"><span>每人票價</span><strong>NT$ {new Intl.NumberFormat('zh-TW').format(Number(String(flight.fare).replace(/,/g, '')))}<small> / 人</small></strong></div>}
+                    <div className="flight-card-footer">
+                      <button className="trip-record-delete-button flight-record-delete-button" type="button" aria-label={`刪除機票 ${index + 1}`} title="刪除機票" onClick={() => deleteFlight(trip.id, flight)} disabled={working}><Trash2 size={16} /></button>
+                      {flight.fare && <div className="flight-fare"><span>每人票價</span><strong>NT$ {new Intl.NumberFormat('zh-TW').format(Number(String(flight.fare).replace(/,/g, '')))}<small> / 人</small></strong></div>}
+                    </div>
                   </article>
                 );
-              })}
-            </div>
-          </div>}
+                })}
+              </div> : <p className="trip-info-empty">尚未新增機票。</p>}
+              <button className="trip-info-add-button trip-info-add-button-flight" type="button" aria-label="新增機票" title="新增機票" onClick={() => setAddingTrip(trip)}><Plus size={19} /></button>
+            </TripInfoModal>
+          )}
         </section>
       )) : <p className="trip-info-empty">{trips.length ? '你的旅程尚未填寫機票資訊。' : '目前沒有可顯示的旅行。'}</p>}
+      {addingTrip && <AddFlightModal trip={addingTrip} onClose={() => setAddingTrip(null)} onSubmit={onAddFlight} />}
     </section>
   );
 }
 
-function LodgingPage({ trips }) {
-  const [expandedTripId, setExpandedTripId] = useState(null);
-  const lodgingGroups = new Map();
+function LodgingPage({ trips, onAddLodging, onDeleteLodging, working }) {
+  const [selectedTripId, setSelectedTripId] = useState(null);
+  const [addingTrip, setAddingTrip] = useState(null);
+  const [deleteError, setDeleteError] = useState('');
+  const lodgingsByTripId = new Map();
   getTripsWithLodging(trips).forEach((record) => {
-    const group = lodgingGroups.get(record.trip.id) || { trip: record.trip, lodgings: [] };
-    group.lodgings.push(record);
-    lodgingGroups.set(record.trip.id, group);
+    const group = lodgingsByTripId.get(record.trip.id) || [];
+    group.push(record);
+    lodgingsByTripId.set(record.trip.id, group);
   });
+  const lodgingGroups = trips.map((trip) => ({ trip, lodgings: lodgingsByTripId.get(trip.id) || [] }));
+
+  async function deleteLodgingRecord(tripId, lodging) {
+    if (!window.confirm(`確定刪除「${lodging.name || '這筆住宿'}」嗎？`)) return;
+    setDeleteError('');
+    try {
+      await onDeleteLodging(tripId, lodging);
+    } catch (error) {
+      setDeleteError(error.message || '刪除住宿失敗，請稍後再試。');
+    }
+  }
+
   return (
     <section className="detail-page">
       <div className="page-heading"><p className="section-eyebrow">ACCOMMODATION</p><h1>住宿資訊</h1></div>
-      {lodgingGroups.size ? [...lodgingGroups.values()].map(({ trip, lodgings }) => (
+      {trips.length ? lodgingGroups.map(({ trip, lodgings }) => (
         <section className="transport-group lodging-trip-group trip-disclosure" key={trip.id}>
-          <TripSummaryRow trip={trip} icon={BedDouble} countLabel={`${lodgings.length} 間住宿`} isExpanded={expandedTripId === trip.id} onToggle={() => setExpandedTripId((current) => current === trip.id ? null : trip.id)} />
-          {expandedTripId === trip.id && <div className="trip-disclosure-details" id={`trip-details-${trip.id}`}>
-            <header className="transport-section-heading">
-              <span className="transport-section-icon"><BedDouble size={18} /></span>
-              <div><p>ACCOMMODATION · {trip.country}</p><h2>{trip.title}</h2></div>
-              <span className="transport-section-side">{trip.id}</span>
-            </header>
-            <div className="lodging-card-list">
-              {lodgings.map(({ lodging, index }) => {
+          <TripSummaryRow trip={trip} icon={BedDouble} countLabel={`${lodgings.length} 間住宿`} variant="lodging" onOpen={() => { setDeleteError(''); setSelectedTripId(trip.id); }} />
+          {selectedTripId === trip.id && (
+            <TripInfoModal trip={trip} topic="ACCOMMODATION" onClose={() => setSelectedTripId(null)}>
+              {deleteError && <p className="planner-error trip-record-delete-error" role="alert">{deleteError}</p>}
+              {lodgings.length ? <div className="lodging-card-list">
+                {lodgings.map(({ lodging, index }) => {
                 const nights = lodging.checkIn && lodging.checkOut
                   ? `${Math.max(Math.round((new Date(`${lodging.checkOut}T00:00:00`) - new Date(`${lodging.checkIn}T00:00:00`)) / 86400000), 0)} 晚`
                   : '尚未設定';
@@ -945,7 +1086,7 @@ function LodgingPage({ trips }) {
                   <article className="lodging-card" key={`${trip.id}-${lodging.formId || index}`}>
                     {lodging.coverImage ? <img className="lodging-visual lodging-custom-cover" src={lodging.coverImage} alt={`${lodging.name || '住宿'}封面`} /> : <div className="lodging-visual" aria-hidden="true" />}
                     <div className="lodging-body">
-                      <div className="lodging-kicker"><BedDouble size={15} /> ACCOMMODATION</div>
+                      <div className="lodging-card-heading"><div className="lodging-kicker"><BedDouble size={15} /> ACCOMMODATION</div><button className="trip-record-delete-button lodging-record-delete-button" type="button" aria-label={`刪除住宿 ${index + 1}`} title="刪除住宿" onClick={() => deleteLodgingRecord(trip.id, lodging)} disabled={working}><Trash2 size={16} /></button></div>
                       <h2>{lodging.name || '住宿資訊'}</h2>
                       {lodging.address && <a className="lodging-address" href={mapsUrl(lodging.address)} target="_blank" rel="noreferrer"><MapPin size={16} /><span>{lodging.address}</span><ExternalLink size={14} /></a>}
                       {(lodging.note || lodging.checkIn || lodging.checkOut) && <p className="lodging-note">{lodging.note || `${lodging.checkIn || ''}${lodging.checkOut ? ` 至 ${lodging.checkOut}` : ''}`}</p>}
@@ -953,11 +1094,14 @@ function LodgingPage({ trips }) {
                     </div>
                   </article>
                 );
-              })}
-            </div>
-          </div>}
+                })}
+              </div> : <p className="trip-info-empty">尚未新增住宿。</p>}
+              <button className="trip-info-add-button trip-info-add-button-lodging" type="button" aria-label="新增住宿" title="新增住宿" onClick={() => setAddingTrip(trip)}><Plus size={19} /></button>
+            </TripInfoModal>
+          )}
         </section>
-      )) : <p className="trip-info-empty">{trips.length ? '你的旅程尚未填寫住宿資訊。' : '目前沒有可顯示的旅行。'}</p>}
+      )) : <p className="trip-info-empty">目前沒有可顯示的旅行。</p>}
+      {addingTrip && <AddLodgingModal trip={addingTrip} onClose={() => setAddingTrip(null)} onSubmit={onAddLodging} />}
     </section>
   );
 }
@@ -1059,6 +1203,22 @@ export default function TravelHome({ user, onSignOut, packingStore, expenseStore
     }, input));
   }
 
+  function addTripFlight(tripId, flight) {
+    return runTravelAction(() => travelStore.addFlight(tripId, flight));
+  }
+
+  function addTripLodging(tripId, lodging) {
+    return runTravelAction(() => travelStore.addLodging(tripId, lodging));
+  }
+
+  function deleteTripFlight(tripId, flight) {
+    return runTravelAction(() => travelStore.removeFlight(tripId, flight));
+  }
+
+  function deleteTripLodging(tripId, lodging) {
+    return runTravelAction(() => travelStore.removeLodging(tripId, lodging));
+  }
+
   function joinTrip(tripId) {
     return runTravelAction(() => travelStore.joinTrip(user.uid, {
       name: user.displayName || user.email?.split('@')[0] || '旅人',
@@ -1111,13 +1271,13 @@ export default function TravelHome({ user, onSignOut, packingStore, expenseStore
   return (
     <div className="trip-app">
       <aside className="trip-sidebar">
-        <a className="trip-brand" href="#trip" onClick={(event) => { event.preventDefault(); setSection('itinerary'); }}>
+        <a className="trip-brand" href="#trip" onClick={(event) => { event.preventDefault(); setActiveTravelId(null); setSection('itinerary'); }}>
           <span className="trip-brand-mark" aria-hidden="true"><Compass size={17} strokeWidth={1.7} /></span><span className="trip-brand-name">TRAVEL<small>JOURNAL</small></span>
         </a>
         <div className="sidebar-trip-label"><span>YOUR TRIP</span><strong>{activeTrip?.title || '開始規劃旅程'}</strong></div>
         <nav className="trip-nav" aria-label="行程導覽">
           {navItems.map(({ id, label, icon: Icon }) => (
-            <button className={`trip-nav-item${section === id ? ' active' : ''}`} key={id} type="button" onClick={() => setSection(id)}>
+            <button className={`trip-nav-item${section === id ? ' active' : ''}`} key={id} type="button" onClick={() => { if (id === 'itinerary') setActiveTravelId(null); setSection(id); }}>
               <Icon size={18} strokeWidth={1.8} /><span>{label}</span>{section === id && <i />}
             </button>
           ))}
@@ -1162,8 +1322,8 @@ export default function TravelHome({ user, onSignOut, packingStore, expenseStore
           {section === 'itinerary' && !activeTravelId && <TravelPlanner key={section} uid={user.uid} trips={travelItems} loadState={travelLoadState} error={travelError} working={travelWorking} onCreate={createTrip} onJoin={joinTrip} onPreviewJoin={previewTrip} onDeleteTrip={deleteTrip} onOpenTrip={(tripId) => { setActiveTravelId(tripId); setSection('itinerary'); }} />}
           {section === 'itinerary' && activeTravelId && !activeTrip && <div className="planner-empty-state">正在載入旅程…</div>}
           {section === 'itinerary' && activeTrip && <TripOverview key={activeTrip.id} trip={activeTrip} onAddEvent={(date, event) => addTripEvent(activeTrip.id, date, event)} onUpdateEvent={(date, eventId, event) => updateTripEvent(activeTrip.id, date, eventId, event)} onDeleteEvent={(date, eventId) => deleteTripEvent(activeTrip.id, date, eventId)} onUpdateDetails={(date, details) => updateTripDayDetails(activeTrip.id, date, details)} onBack={() => setActiveTravelId(null)} />}
-          {section === 'transport' && <TransportationPage trips={travelItems} />}
-          {section === 'lodging' && <LodgingPage trips={travelItems} />}
+          {section === 'transport' && <TransportationPage trips={travelItems} onAddFlight={addTripFlight} onDeleteFlight={deleteTripFlight} working={travelWorking} />}
+          {section === 'lodging' && <LodgingPage trips={travelItems} onAddLodging={addTripLodging} onDeleteLodging={deleteTripLodging} working={travelWorking} />}
           {section === 'expenses' && <ExpensePage user={user} expenseStore={expenseStore} trips={travelItems} />}
           {section === 'packing' && <PackingListPage user={user} packingStore={packingStore} trips={travelItems} />}
         </main>

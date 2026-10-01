@@ -11,7 +11,7 @@ function formItemId(kind) {
   return `${kind}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function emptyFlight() {
+export function emptyFlight() {
   return {
     formId: formItemId('flight'),
     airline: '',
@@ -24,7 +24,7 @@ function emptyFlight() {
   };
 }
 
-function emptyLodging() {
+export function emptyLodging() {
   return { formId: formItemId('lodging'), name: '', address: '', checkIn: '', checkOut: '', price: '', note: '', coverImage: '' };
 }
 
@@ -48,11 +48,11 @@ const airportGroups = [
 ];
 const dailyLocationOptions = getDailyLocationOptions();
 
-function Field({ label, className = '', ...inputProps }) {
+export function Field({ label, className = '', ...inputProps }) {
   return <label className={`planner-field${className ? ` ${className}` : ''}`}><span>{label}</span><input {...inputProps} /></label>;
 }
 
-async function loadSelectedImage(event, onImage, setError) {
+export async function loadSelectedImage(event, onImage, setError) {
   const input = event.currentTarget;
   const file = input.files?.[0];
   input.value = '';
@@ -65,7 +65,7 @@ async function loadSelectedImage(event, onImage, setError) {
   }
 }
 
-function ImageUploadField({ label, image, error, onChange, onRemove }) {
+export function ImageUploadField({ label, image, error, onChange, onRemove }) {
   return (
     <div className="planner-image-field planner-field-wide">
       <div className="planner-image-heading"><span>{label}</span><span className="planner-image-format">JPG / PNG <i /> 1 MiB 以內</span></div>
@@ -82,7 +82,7 @@ function ImageUploadField({ label, image, error, onChange, onRemove }) {
   );
 }
 
-function AirportField({ label, value, onChange, placeholder }) {
+export function AirportField({ label, value, onChange, placeholder }) {
   return (
     <label className="planner-field">
       <span>{label}</span>
@@ -181,10 +181,12 @@ function TravelCard({ trip, onOpen, onDelete, canDelete }) {
       <div className="travel-card-content">
         <div className="travel-card-top"><span className="travel-card-country">{trip.country || '未設定國家'}</span><div className="travel-card-tools"><ParticipantAvatarStack participants={participants} limit={3} className="participant-stack--card" />{canDelete && <button className="travel-card-delete" type="button" aria-label={`刪除旅程：${trip.title}`} title="刪除整趟旅行" onClick={() => onDelete(trip)}><Trash2 size={15} /></button>}</div></div>
         <span className="travel-card-title">{trip.title}</span>
-        <span className="travel-card-id">{trip.id}<TravelIdCopyButton id={trip.id} /></span>
-        <span className="travel-card-description">{trip.description || '還沒有旅程描述。'}</span>
         <span className="travel-card-date"><CalendarDays size={15} />{formatTripDateRange(trip.startDate, trip.endDate)}</span>
-        <span className="travel-card-open">開啟旅程 <ArrowRight size={15} /></span>
+        <span className="travel-card-description">{trip.description || '還沒有旅程描述。'}</span>
+        <div className="travel-card-footer">
+          <span className="travel-card-id"><TravelIdCopyButton id={trip.id} /><span className="travel-card-id-value">{trip.id}</span></span>
+          <span className="travel-card-open">開啟旅程 <ArrowRight size={15} /></span>
+        </div>
       </div>
     </article>
   );
@@ -284,6 +286,10 @@ export default function TravelPlanner({ uid, trips, loadState, error, working, o
       setFormError('請填寫航空公司、航班日期、出發機場、目的地機場與每人票價。');
       return;
     }
+    if (!Number.isFinite(Number(flightDraft.fare)) || Number(flightDraft.fare) <= 0) {
+      setFormError('每人票價必須是大於 0 的數字。');
+      return;
+    }
     setTrip((current) => ({
       ...current,
       flights: current.flights.map((flight) => flight.formId === editingFlightId ? { ...flightDraft, saved: true } : flight),
@@ -314,12 +320,16 @@ export default function TravelPlanner({ uid, trips, loadState, error, working, o
   }
 
   function saveLodgingDraft() {
-    if (!lodgingDraft.name.trim() || !lodgingDraft.checkIn || !lodgingDraft.checkOut) {
-      setFormError('請填寫住宿名稱、入住日期與退房日期。');
+    if (!lodgingDraft.name.trim() || !lodgingDraft.checkIn || !lodgingDraft.checkOut || lodgingDraft.price === '') {
+      setFormError('請填寫住宿名稱、入住日期、退房日期與住宿金額。');
       return;
     }
     if (lodgingDraft.checkOut <= lodgingDraft.checkIn) {
       setFormError('退房日期必須晚於入住日期。');
+      return;
+    }
+    if (!Number.isFinite(Number(lodgingDraft.price)) || Number(lodgingDraft.price) <= 0) {
+      setFormError('住宿金額必須是大於 0 的數字。');
       return;
     }
     setTrip((current) => ({
@@ -497,7 +507,10 @@ export default function TravelPlanner({ uid, trips, loadState, error, working, o
   if (mode === 'create') {
     return (
       <section className="detail-page planner-page">
-        <button className="planner-back" type="button" onClick={() => setMode('list')}><ArrowLeft size={16} />我的旅行</button>
+        <button className="overview-back-button planner-create-back" type="button" onClick={() => setMode('list')}>
+          <span className="overview-back-icon-box"><ArrowLeft size={15} /></span>
+          <span className="overview-back-text">我的旅行</span>
+        </button>
         <header className="planner-heading"><p className="section-eyebrow">A NEW JOURNEY</p><h1>{step === 1 ? '新建旅行' : '安排每日行程'}</h1><p>{step === 1 ? '先定下旅程的方向，再慢慢填入出發細節。' : `${trip.title} · ${formatTripDateRange(trip.startDate, trip.endDate)}`}</p></header>
         <div className="planner-steps" aria-label="建立旅行步驟"><span className={step === 1 ? 'active' : 'complete'}><i>{step > 1 ? <Check size={13} /> : '1'}</i>旅程資訊</span><span className={step === 2 ? 'active' : ''}><i>2</i>每日行程</span></div>
 
@@ -524,7 +537,7 @@ export default function TravelPlanner({ uid, trips, loadState, error, working, o
                   <AirportField label="目的地機場" value={flightDraft.arrivalAirport} onChange={(event) => updateFlightDraft('arrivalAirport', event.target.value)} placeholder="選擇目的地機場" />
                   <Field label="出發時間" type="time" value={flightDraft.departureTime} onChange={(event) => updateFlightDraft('departureTime', event.target.value)} />
                   <Field label="抵達時間" type="time" value={flightDraft.arrivalTime} onChange={(event) => updateFlightDraft('arrivalTime', event.target.value)} />
-                  <Field className="flight-fare-field" label="每人票價（TWD）" type="number" min="0" step="1" value={flightDraft.fare} onChange={(event) => updateFlightDraft('fare', event.target.value)} required />
+                  <Field className="flight-fare-field" label="每人票價（TWD）" type="number" min="1" step="1" value={flightDraft.fare} onChange={(event) => updateFlightDraft('fare', event.target.value)} required />
                 </div>
               </article> : <article className="planner-repeat-card planner-saved-card" key={flight.formId}>
                 <header className="planner-repeat-heading"><h3><Plane size={16} />機票 {index + 1}</h3><div className="planner-item-controls"><button className="planner-edit-item" type="button" aria-label={`編輯機票 ${index + 1}`} title="編輯機票" onClick={() => startFlightDraft(flight)} disabled={Boolean(editingFlightId || editingLodgingId)}><Pencil size={16} /></button><button className="planner-remove-item" type="button" aria-label={`刪除機票 ${index + 1}`} title="刪除機票" onClick={() => removeFlight(flight.formId)}><Trash2 size={15} /></button></div></header>
@@ -540,10 +553,10 @@ export default function TravelPlanner({ uid, trips, loadState, error, working, o
                 <header className="planner-repeat-heading"><h3><BedDouble size={16} />住宿 {index + 1}</h3><div className="planner-item-controls"><button className="planner-confirm-item" type="button" aria-label="確認住宿" title="確認住宿" onClick={saveLodgingDraft}><Check size={17} /></button><button className="planner-cancel-item" type="button" aria-label="取消編輯" title="返回" onClick={cancelLodgingDraft}><ArrowLeft size={17} /></button></div></header>
                 <div className="planner-fields-grid lodging-editor-grid">
                   <Field className="lodging-half-field" label="住宿名稱" value={lodgingDraft.name} onChange={(event) => updateLodgingDraft('name', event.target.value)} placeholder="飯店或住宿名稱" required />
-                  <Field className="lodging-half-field" label="住宿地址" value={lodgingDraft.address} onChange={(event) => updateLodgingDraft('address', event.target.value)} placeholder="完整地址" />
-                  <Field className="lodging-third-field" label="入住日期" type="date" value={lodgingDraft.checkIn} min={trip.startDate} max={lodgingDraft.checkOut || trip.endDate} onChange={(event) => updateLodgingDraft('checkIn', event.target.value)} required />
-                  <Field className="lodging-third-field" label="退房日期" type="date" value={lodgingDraft.checkOut} min={lodgingDraft.checkIn || trip.startDate} max={trip.endDate} onChange={(event) => updateLodgingDraft('checkOut', event.target.value)} required />
-                  <Field className="lodging-third-field" label="住宿金額（TWD）" type="number" min="0" step="1" value={lodgingDraft.price} onChange={(event) => updateLodgingDraft('price', event.target.value)} placeholder="可留白" />
+                  <Field className="lodging-half-field" label="住宿金額（TWD）" type="number" min="1" step="1" value={lodgingDraft.price} onChange={(event) => updateLodgingDraft('price', event.target.value)} required />
+                  <Field className="planner-field-wide" label="住宿地址" value={lodgingDraft.address} onChange={(event) => updateLodgingDraft('address', event.target.value)} placeholder="完整地址" />
+                  <Field className="lodging-half-field" label="入住日期" type="date" value={lodgingDraft.checkIn} min={trip.startDate} max={lodgingDraft.checkOut || trip.endDate} onChange={(event) => updateLodgingDraft('checkIn', event.target.value)} required />
+                  <Field className="lodging-half-field" label="退房日期" type="date" value={lodgingDraft.checkOut} min={lodgingDraft.checkIn || trip.startDate} max={trip.endDate} onChange={(event) => updateLodgingDraft('checkOut', event.target.value)} required />
                   <label className="planner-field planner-field-wide"><span>住宿備註</span><textarea value={lodgingDraft.note} onChange={(event) => updateLodgingDraft('note', event.target.value)} rows={2} placeholder="入住提醒、訂房資訊等" /></label>
                   <ImageUploadField label="住宿封面圖片" image={lodgingDraft.coverImage} error={lodgingImageError} onChange={(event) => { void loadSelectedImage(event, (coverImage) => updateLodgingDraft('coverImage', coverImage), setLodgingImageError); }} onRemove={() => { updateLodgingDraft('coverImage', ''); setLodgingImageError(''); }} />
                 </div>

@@ -369,10 +369,10 @@
 }
 
 .trip-hero-participants {
-  position: relative;
+  position: absolute;
   z-index: 2;
-  flex: 0 0 auto;
-  margin-left: auto;
+  top: 20px;
+  right: 20px;
 }
 
 .trip-meta {
@@ -467,7 +467,7 @@
   display: grid;
   position: relative;
   width: 100%;
-  grid-template-columns: 40px minmax(0, 1fr) minmax(190px, auto) 20px;
+  grid-template-columns: 40px minmax(0, 1fr) 126px 20px;
   align-items: center;
   gap: 15px;
   padding: 18px 20px;
@@ -523,39 +523,54 @@
   min-width: 0;
   align-items: center;
   gap: 7px;
+  white-space: nowrap;
 }
 
-.day-title-edit-button {
+.day-title-line .day-title {
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.day-area-edit-button {
   display: inline-grid;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   flex: 0 0 auto;
   place-items: center;
   padding: 0;
-  color: #aebcc0;
+  color: #a0adaf;
   background: transparent;
   border: 0;
-  border-radius: 3px;
+  border-radius: 6px;
   cursor: pointer;
   pointer-events: auto;
 }
 
-.day-title-edit-button:hover,
-.day-title-edit-button:focus-visible {
+.day-area-edit-button:hover,
+.day-area-edit-button:focus-visible {
   color: #e4c894;
   background: #ffffff12;
 }
 
-.day-title-edit-button:focus-visible {
+.day-area-edit-button:focus-visible {
   outline: 2px solid #80b9aa;
   outline-offset: 1px;
 }
 
 .day-date {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
   color: #9a8370;
-  font-size: 9px;
+  font-size: 16px;
   font-weight: 700;
   letter-spacing: .7px;
+  line-height: 1.2;
 }
 
 .day-title {
@@ -569,10 +584,19 @@
 
 .day-area {
   display: flex;
+  min-width: 0;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   color: #818b82;
   font-size: 10px;
+}
+
+.day-area-name {
+  min-width: 0;
+  overflow: hidden;
+  flex: 0 1 auto;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .day-area svg {
@@ -581,37 +605,34 @@
 
 .day-weather {
   display: grid;
-  min-height: 54px;
-  grid-template-columns: minmax(74px, auto) 20px auto 1fr;
-  align-items: center;
-  justify-content: end;
-  justify-self: end;
+  width: 126px;
   min-width: 0;
-  max-width: 100%;
-  gap: 8px;
-  padding: 7px 10px;
-  border: 1px solid #e3e7dd;
-  border-radius: 10px;
-  background: linear-gradient(180deg, #f8faf5 0%, #f1f4ee 100%);
+  grid-template-rows: 48px auto;
+  justify-items: center;
+  align-items: center;
+  gap: 3px;
+  padding: 0 4px;
 }
 
-.weather-place {
+.weather-icon-wrap {
   display: grid;
-  gap: 1px;
-  color: #53675b;
-  font-size: 11px;
-  font-weight: 600;
-  white-space: nowrap;
+  width: 56px;
+  height: 48px;
+  place-items: center;
 }
 
-.weather-place span {
-  color: #a0a69f;
-  font-size: 8px;
-  font-weight: 400;
+.weather-info {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
 }
 
 .weather-icon {
   color: #bd8d51;
+  flex: 0 0 auto;
 }
 
 .weather-temp {
@@ -623,9 +644,10 @@
 .weather-condition {
   display: inline-flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
+  justify-content: center;
+  gap: 4px;
   min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   color: #89948a;
   font-size: 9px;
@@ -633,8 +655,9 @@
 }
 
 .weather-main {
+  display: block;
   overflow: hidden;
-  max-width: 84px;
+  max-width: 68px;
   color: #6f7c72;
   font-size: 10px;
   font-weight: 600;
@@ -670,6 +693,9 @@
 }
 
 .day-chevron {
+  grid-column: 4;
+  grid-row: 1;
+  justify-self: end;
   color: #929d93;
   transition: transform .2s;
 }
@@ -1449,19 +1475,10 @@
   }
 
   .day-card-heading {
-    grid-template-columns: 34px minmax(0, 1fr) minmax(136px, auto) 18px;
+    grid-template-columns: 34px minmax(0, 1fr) 112px 18px;
     gap: 11px;
     padding-right: 14px;
     padding-left: 14px;
-  }
-
-  .day-weather {
-    grid-template-columns: auto 19px auto;
-    gap: 6px;
-  }
-
-  .weather-condition {
-    display: none;
   }
 
   .day-card-body {
@@ -1552,8 +1569,9 @@
 
   .trip-hero-participants {
     position: absolute;
-    right: 19px;
-    bottom: 17px;
+    top: 14px;
+    right: 14px;
+    bottom: auto;
   }
 
   .trip-hero h1 {
@@ -1626,7 +1644,7 @@
   }
 
   .day-date {
-    font-size: 8px;
+    font-size: 16px;
   }
 
   .day-title {
@@ -1642,34 +1660,27 @@
   }
 
   .day-weather {
-    min-height: 34px;
-    grid-column: 2 / 3;
-    grid-row: 2;
-    justify-content: start;
-    margin-top: 5px;
-    gap: 6px;
-    padding: 4px 7px;
-    border-radius: 8px;
+    width: 112px;
+    grid-template-rows: 44px auto;
+    gap: 2px;
   }
 
-  .weather-place {
-    display: flex;
-    align-items: baseline;
-    gap: 5px;
-    font-size: 10px;
-  }
-
-  .weather-place span {
-    font-size: 8px;
+  .weather-icon-wrap {
+    width: 48px;
+    height: 44px;
   }
 
   .weather-icon {
-    width: 18px;
-    height: 18px;
+    width: 36px;
+    height: 36px;
+  }
+
+  .weather-info {
+    gap: 4px;
   }
 
   .weather-temp {
-    font-size: 15px;
+    font-size: 16px;
   }
 
   .weather-condition {
@@ -1690,7 +1701,7 @@
   }
 
   .day-chevron {
-    grid-column: 3;
+    grid-column: 4;
     grid-row: 1;
   }
 
@@ -2151,7 +2162,7 @@
 
 .day-date {
   color: #d3b58d;
-  font-size: 10px;
+  font-size: 16px;
 }
 
 .day-title {
@@ -2166,21 +2177,6 @@
 
 .day-area svg {
   color: #d3ad75;
-}
-
-.day-weather {
-  border-color: #303a42;
-  background: linear-gradient(180deg, #1a232c 0%, #151e26 100%);
-}
-
-.weather-place {
-  color: #d6e0de;
-  font-size: 11px;
-}
-
-.weather-place span {
-  color: #9daab0;
-  font-size: 9px;
 }
 
 .weather-icon {
@@ -2456,7 +2452,7 @@
 
 .flight-card-top {
   color: #b5bfc2;
-  font-size: 10px;
+  font-size: 14px;
 }
 
 .flight-direction {
@@ -2465,7 +2461,7 @@
 
 .flight-airline {
   color: #edf0eb;
-  font-size: 13px;
+  font-size: 16px;
 }
 
 .flight-icon {
@@ -2494,7 +2490,7 @@
 }
 
 .flight-route strong.flight-airport-name {
-  font-size: 13px;
+  font-size: 16px;
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
@@ -2649,22 +2645,12 @@
   }
 
   .day-date {
-    font-size: 9px;
+    font-size: 12px;
   }
 
   .day-area {
     color: #bac4c5;
     font-size: 10px;
-  }
-
-  .weather-place {
-    color: #d6dfdc;
-    font-size: 10px;
-  }
-
-  .weather-place span {
-    color: #a9b4b7;
-    font-size: 9px;
   }
 
   .weather-temp {
@@ -3425,44 +3411,66 @@
   margin-bottom: 18px;
 }
 
-.expense-settlement-panel {
-  margin-bottom: 18px;
-  padding: 16px 18px;
-  border: 1px solid #3c4a42;
-  border-left: 3px solid #9bb28f;
-  border-radius: 9px;
-  background: #1a2420;
-}
-
-.expense-settlement-heading {
+.expense-toolbar-actions {
   display: flex;
+  align-items: stretch;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.expense-toolbar-actions>button {
+  min-width: 132px;
+  justify-content: center;
+}
+
+.expense-transfer-button {
+  display: inline-flex;
+  min-height: 42px;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 16px;
+  border: 1px solid #668a78;
+  border-radius: 7px;
+  color: #b8ddc9;
+  background: #1d342b;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease;
 }
 
-.expense-settlement-heading .section-eyebrow {
-  margin: 0 0 3px;
-  color: #a9c2a3;
+.expense-transfer-button:hover {
+  border-color: #8bb69d;
+  background: #274637;
 }
 
-.expense-settlement-heading h2 {
-  margin: 0;
-  color: #eef1e9;
-  font-size: 17px;
-  font-weight: 600;
+.expense-transfer-button:focus-visible {
+  outline: 2px solid #a9d1ba;
+  outline-offset: 2px;
 }
 
-.expense-settlement-heading>span,
-.expense-settlement-note {
-  color: #a5b0a8;
-  font-size: 11px;
+.expense-transfer-modal-summary {
+  margin: 0 0 14px;
+  color: #b6c4bc;
+  font-size: 12px;
 }
 
 .expense-transfer-list {
   display: grid;
   border-top: 1px solid #35433b;
+}
+
+@media (max-width: 900px) {
+  .expense-toolbar-actions {
+    display: grid;
+    width: 170px;
+  }
+
+  .expense-toolbar-actions>button {
+    width: 100%;
+  }
 }
 
 .expense-transfer-row {
@@ -3508,8 +3516,23 @@
 }
 
 .expense-settlement-note {
+  color: #a5b0a8;
+  font-size: 11px;
+}
+
+.expense-settlement-note {
   margin: 10px 0 0;
   line-height: 1.5;
+}
+
+.expense-transfer-modal .expense-settlement-note {
+  margin-top: 14px;
+  line-height: 1.6;
+}
+
+.expense-transfer-modal .expense-settlement-empty {
+  margin-top: 8px;
+  padding: 14px 0;
 }
 
 .expense-tabs {
@@ -3804,6 +3827,16 @@
 .expense-icon-action:hover:not(:disabled) {
   color: #c7f3cc;
   background: rgba(76, 145, 87, .34);
+}
+
+.expense-icon-action-lock {
+  color: #e5c48e;
+  background: rgba(208, 170, 115, .16);
+}
+
+.expense-icon-action-lock:hover:not(:disabled) {
+  color: #fff0c7;
+  background: rgba(208, 170, 115, .34);
 }
 
 .expense-icon-action-danger:hover:not(:disabled) {
@@ -4292,21 +4325,12 @@
     justify-content: center;
   }
 
-  .expense-toolbar>.primary-button {
+  .expense-toolbar-actions {
     width: 100%;
   }
 
-  .expense-settlement-panel {
-    padding: 13px;
-  }
-
-  .expense-settlement-heading {
-    align-items: flex-start;
-  }
-
-  .expense-settlement-heading>span {
-    max-width: 48%;
-    text-align: right;
+  .expense-toolbar-actions>button {
+    width: 100%;
   }
 
   .expense-transfer-row {
@@ -4395,12 +4419,12 @@
   position: sticky;
   z-index: 4;
   top: 68px;
-  background: #12181e;
-  box-shadow: 0 1px 0 #29333b;
+  background: #1a2224;
+  box-shadow: 0 1px 0 #2b3537;
 }
 
 .day-card-heading:hover {
-  background: #1a2228;
+  background: #1d2729;
 }
 
 @media (max-width: 760px) {
@@ -4913,15 +4937,15 @@
   display: grid;
   width: 100%;
   min-height: 80px;
-  grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(170px, auto)) 20px;
+  grid-template-columns: 38px minmax(0, 1.4fr) repeat(2, minmax(170px, auto)) 20px;
   align-items: center;
   gap: 22px;
   box-sizing: border-box;
   padding: 14px 17px;
-  border: 1px solid #33423e;
+  border: 1px solid #494337;
   border-radius: 9px;
   color: #eef1e9;
-  background: #17211e;
+  background: #27231d;
   text-align: left;
   font: inherit;
   cursor: pointer;
@@ -4929,8 +4953,8 @@
 }
 
 .expense-trip-summary:hover {
-  border-color: #8d7955;
-  background: #1b2722;
+  border-color: #5e533e;
+  background: #302a21;
 }
 
 .expense-trip-summary:focus-visible {
@@ -4952,10 +4976,15 @@
   font-weight: 650;
 }
 
-.expense-trip-summary-name small {
-  overflow-wrap: anywhere;
-  color: #aeb9bc;
-  font-size: 11px;
+.expense-trip-summary-icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid #4a4333;
+  border-radius: 8px;
+  color: #d0bb8c;
+  background: #332d23;
 }
 
 .expense-trip-summary-total small {
@@ -4976,6 +5005,7 @@
 
 .expense-trip-summary>svg {
   color: #d0aa73;
+  grid-column: 5;
 }
 
 .expense-modal-backdrop {
@@ -5089,28 +5119,34 @@
 
   .expense-trip-summary {
     min-height: 0;
-    grid-template-columns: minmax(0, 1fr) 20px;
+    grid-template-columns: 36px minmax(0, 1fr) 20px;
     gap: 9px 12px;
     padding: 13px 14px;
   }
 
-  .expense-trip-summary-name {
+  .expense-trip-summary-icon {
     grid-column: 1;
+    grid-row: 1 / 4;
+    align-self: center;
+  }
+
+  .expense-trip-summary-name {
+    grid-column: 2;
     grid-row: 1;
   }
 
   .expense-trip-summary-total:not(.is-personal) {
-    grid-column: 1;
+    grid-column: 2;
     grid-row: 2;
   }
 
   .expense-trip-summary-total.is-personal {
-    grid-column: 1;
+    grid-column: 2;
     grid-row: 3;
   }
 
   .expense-trip-summary>svg {
-    grid-column: 2;
+    grid-column: 3;
     grid-row: 1 / 4;
     align-self: center;
   }
@@ -5162,6 +5198,10 @@
 }
 
 .trip-summary-row {
+  --trip-summary-border: #2c414a;
+  --trip-summary-background: #17252c;
+  --trip-summary-hover-border: #405760;
+  --trip-summary-hover-background: #1c2e36;
   display: grid;
   width: 100%;
   min-height: 78px;
@@ -5170,10 +5210,10 @@
   gap: 14px;
   box-sizing: border-box;
   padding: 13px 16px;
-  border: 1px solid #35434a;
+  border: 1px solid var(--trip-summary-border);
   border-radius: 9px;
   color: #edf0ef;
-  background: #171f24;
+  background: var(--trip-summary-background);
   text-align: left;
   font: inherit;
   cursor: pointer;
@@ -5181,9 +5221,16 @@
 }
 
 .trip-summary-row:hover,
-.trip-summary-row.is-expanded {
-  border-color: #8e7655;
-  background: #1b2428;
+.trip-summary-row:active {
+  border-color: var(--trip-summary-hover-border);
+  background: var(--trip-summary-hover-background);
+}
+
+.trip-summary-row-lodging {
+  --trip-summary-border: #394842;
+  --trip-summary-background: #202b28;
+  --trip-summary-hover-border: #4e6459;
+  --trip-summary-hover-background: #26332f;
 }
 
 .trip-summary-row:focus-visible {
@@ -5202,6 +5249,18 @@
   background: #282923;
 }
 
+.trip-summary-row-lodging .trip-summary-icon {
+  border-color: #43564c;
+  color: #aabeb2;
+  background: #2a3731;
+}
+
+.trip-summary-row-flight .trip-summary-icon {
+  border-color: #3b535c;
+  color: #9bb8c1;
+  background: #1d3038;
+}
+
 .trip-summary-main {
   display: grid;
   min-width: 0;
@@ -5213,12 +5272,6 @@
   color: #f0f1ed;
   font-size: 15px;
   font-weight: 650;
-}
-
-.trip-summary-main small {
-  overflow-wrap: anywhere;
-  color: #aeb9bc;
-  font-size: 11px;
 }
 
 .trip-summary-dates {
@@ -5235,23 +5288,122 @@
   white-space: nowrap;
 }
 
+.trip-summary-row-flight .trip-summary-count {
+  color: #a5d5e5;
+}
+
+.trip-summary-row-lodging .trip-summary-count {
+  color: #c1c3a9;
+}
+
 .trip-summary-chevron {
   color: #c8d0d1;
   transition: transform 150ms ease;
 }
 
-.trip-summary-row.is-expanded .trip-summary-chevron {
-  transform: rotate(180deg);
-}
-
-.trip-disclosure-details {
-  padding: 17px 8px 4px;
-  border-bottom: 1px solid #303b43;
-}
-
 .lodging-card-list {
   display: grid;
   gap: 14px;
+}
+
+.trip-info-add-button {
+  display: grid;
+  width: 100%;
+  min-height: 54px;
+  margin-top: 14px;
+  place-items: center;
+  border: 1px dashed rgba(208, 170, 115, .48);
+  border-radius: 8px;
+  color: #ddc08c;
+  background: rgba(208, 170, 115, .1);
+  cursor: pointer;
+  transition: border-color 150ms ease, color 150ms ease, background-color 150ms ease;
+}
+
+.trip-info-add-button:hover {
+  border-color: #d0aa73;
+  color: #f0d9aa;
+  background: rgba(208, 170, 115, .22);
+}
+
+.trip-info-add-button:focus-visible {
+  outline: 2px solid #d0aa73;
+  outline-offset: 2px;
+}
+
+.flight-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.flight-card-footer .flight-fare {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.trip-record-delete-button {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(201, 132, 117, .28);
+  border-radius: 6px;
+  color: #c8897d;
+  background: rgba(132, 66, 59, .12);
+  cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease, background-color 140ms ease;
+}
+
+.trip-record-delete-button:hover:not(:disabled) {
+  border-color: rgba(222, 151, 136, .56);
+  color: #e9b4a8;
+  background: rgba(132, 66, 59, .28);
+}
+
+.trip-record-delete-button:focus-visible {
+  outline: 2px solid #d0aa73;
+  outline-offset: 2px;
+}
+
+.trip-record-delete-button:disabled {
+  cursor: wait;
+  opacity: .5;
+}
+
+.lodging-card-heading {
+  display: flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lodging-card-heading .lodging-kicker {
+  min-width: 0;
+}
+
+.lodging-record-delete-button {
+  margin: -5px -5px -5px 0;
+}
+
+.trip-record-delete-error {
+  margin: 0 0 12px;
+}
+
+.trip-record-form {
+  display: grid;
+  gap: 16px;
+}
+
+.travel-modal.trip-info-modal {
+  width: min(900px, 100%);
+  max-height: min(760px, calc(100dvh - 32px));
 }
 
 .flight-card-top {
@@ -5269,19 +5421,19 @@
   flex: 0 0 82px;
   gap: 4px;
   justify-items: end;
-  color: #c7d0d0;
+  color: #e5c48e;
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
 
 .flight-date span {
-  color: #c1cbcd;
-  font-size: 11px;
-  font-weight: 600;
+  color: inherit;
+  font-size: 16px;
+  font-weight: 700;
 }
 
 .flight-date strong {
-  color: #e5c48e;
+  color: inherit;
   font-size: 21px;
   font-weight: 700;
 }
@@ -5290,7 +5442,7 @@
   display: block;
   margin-top: 3px;
   color: #edc77f;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
@@ -5324,10 +5476,6 @@
     font-size: 14px;
   }
 
-  .trip-summary-main small {
-    font-size: 10px;
-  }
-
   .trip-summary-dates {
     grid-column: 2;
     grid-row: 2;
@@ -5348,8 +5496,8 @@
     align-self: center;
   }
 
-  .trip-disclosure-details {
-    padding: 13px 0 4px;
+  .travel-modal.trip-info-modal {
+    max-height: calc(100dvh - 32px);
   }
 
   .flight-date {
@@ -5357,7 +5505,7 @@
   }
 
   .flight-date span {
-    font-size: 10px;
+    font-size: 19px;
   }
 
   .flight-date strong {
@@ -5895,12 +6043,6 @@
   font-weight: 600;
 }
 
-.expense-lock-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
 .expense-locked-join-hint,
 .expense-locked-status-tag {
   display: inline-flex;
@@ -5956,32 +6098,31 @@
   pointer-events: auto;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px 16px 6px 7px;
-  border-radius: 9999px;
-  border: 1px solid rgba(208, 170, 115, 0.32);
-  background: rgba(18, 25, 30, 0.86);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  color: #edf2f1;
+  gap: 8px;
+  padding: 5px 12px 5px 6px;
+  border: 1px solid rgba(151, 173, 166, .2);
+  border-radius: 8px;
+  background: rgba(26, 34, 36, .94);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #c4cfcc;
   font-family: inherit;
   font-size: 13px;
   font-weight: 500;
-  letter-spacing: 0.3px;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.42), 0 1px 3px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .2);
   cursor: pointer;
-  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: color 160ms ease, border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
 }
 
 .overview-back-icon-box {
   display: grid;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   place-items: center;
   border-radius: 50%;
-  background: rgba(208, 170, 115, 0.15);
-  color: #dfba82;
-  transition: all 0.2s ease;
+  background: rgba(105, 183, 165, .12);
+  color: #9fc4b8;
+  transition: color 160ms ease, background-color 160ms ease;
 }
 
 .overview-back-text {
@@ -5990,21 +6131,24 @@
 }
 
 .overview-back-button:hover {
-  border-color: #d0aa73;
-  background: rgba(24, 34, 41, 0.96);
-  color: #ffffff;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.52), 0 0 12px rgba(208, 170, 115, 0.25);
+  border-color: rgba(151, 190, 177, .4);
+  background: #202a2d;
+  color: #edf2f1;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, .24);
 }
 
 .overview-back-button:hover .overview-back-icon-box {
-  background: #d0aa73;
-  color: #172024;
-  transform: translateX(-2px);
+  background: rgba(105, 183, 165, .22);
+  color: #c0ded2;
 }
 
 .overview-back-button:active {
-  transform: scale(0.97) translateY(0);
+  background: #1c2528;
+}
+
+.overview-back-button:focus-visible {
+  outline: 2px solid #80b9aa;
+  outline-offset: 2px;
 }
 
 @media (max-width: 760px) {
@@ -6015,14 +6159,14 @@
   }
 
   .overview-back-button {
-    padding: 5px 13px 5px 6px;
+    padding: 4px 11px 4px 5px;
     font-size: 12px;
-    gap: 8px;
+    gap: 7px;
   }
 
   .overview-back-icon-box {
-    width: 24px;
-    height: 24px;
+    width: 23px;
+    height: 23px;
   }
 }
 
@@ -6151,15 +6295,15 @@
 
 @media (max-width: 900px) {
   .day-card-heading {
-    grid-template-columns: 34px minmax(0, 1fr) 18px;
-    align-items: start;
+    grid-template-columns: 31px minmax(0, 1fr) 108px 18px;
+    align-items: center;
     gap: 9px;
     padding: 14px 12px;
   }
 
   .day-index {
-    align-self: start;
-    padding-top: 2px;
+    align-self: center;
+    padding-top: 0;
     font-size: 20px;
   }
 
@@ -6172,26 +6316,23 @@
   }
 
   .day-weather {
-    min-height: 36px;
-    grid-column: 2 / 3;
-    grid-row: 2;
-    justify-content: start;
-    justify-self: start;
-    margin-top: 4px;
-    gap: 6px;
-    padding: 4px 8px;
-    border-radius: 8px;
+    width: 108px;
+    grid-template-rows: 42px auto;
+    gap: 2px;
   }
 
-  .weather-place {
-    display: flex;
-    align-items: baseline;
-    gap: 5px;
-    font-size: 10px;
+  .weather-icon-wrap {
+    width: 44px;
+    height: 42px;
   }
 
-  .weather-place span {
-    font-size: 8px;
+  .weather-icon {
+    width: 34px;
+    height: 34px;
+  }
+
+  .weather-info {
+    gap: 3px;
   }
 
   .weather-temp {
@@ -6214,7 +6355,7 @@
   }
 
   .day-chevron {
-    grid-column: 3;
+    grid-column: 4;
     grid-row: 1;
   }
 
@@ -6222,3 +6363,4 @@
     padding: 10px 12px 16px;
   }
 }
+

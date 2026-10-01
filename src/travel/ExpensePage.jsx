@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     AlertTriangle,
     ArrowRight,
+    ArrowRightLeft,
     Check,
     CreditCard,
     Lock,
@@ -486,6 +487,18 @@ function SharedExpenseCard({ expense, user, onJoin, onLeave, onEdit, onRemove, o
                         >
                             <Pencil size={15} />
                         </button>
+                        {!expense.locked && (
+                            <button
+                                className="expense-icon-action expense-icon-action-lock"
+                                type="button"
+                                aria-label="鎖定分帳"
+                                title="鎖定分帳（不可逆）"
+                                onClick={() => onOpenLock(expense)}
+                                disabled={working}
+                            >
+                                <Lock size={15} />
+                            </button>
+                        )}
                         <button
                             className="expense-icon-action expense-icon-action-danger"
                             type="button"
@@ -554,19 +567,6 @@ function SharedExpenseCard({ expense, user, onJoin, onLeave, onEdit, onRemove, o
                             <Check size={14} />標記結清
                         </button>
                     )}
-                    {/* 建立者鎖定分帳按鈕（不可逆） */}
-                    {isOwner && !expense.locked && (
-                        <button
-                            className="secondary-button expense-lock-button"
-                            type="button"
-                            aria-label="鎖定分帳"
-                            onClick={() => onOpenLock(expense)}
-                            disabled={working}
-                        >
-                            <Lock size={14} />鎖定分帳
-                        </button>
-                    )}
-
                     {/* 非參與者：若已鎖定則禁止加入，否則可加入分帳 */}
                     {!currentParticipant && (
                         expense.locked ? (
@@ -628,7 +628,8 @@ function ExpenseTripSummary({ trip, data, jpyToTwd, onOpen }) {
 
     return (
         <button className="expense-trip-summary" type="button" onClick={onOpen} aria-label={`開啟${trip.title}記帳，公帳總計 ${sharedAmount}，私人花費 ${personalAmount}`}>
-            <span className="expense-trip-summary-name"><strong>{trip.title}</strong><small>旅行 ID · {trip.id}</small></span>
+            <span className="expense-trip-summary-icon"><Receipt size={18} aria-hidden="true" /></span>
+            <span className="expense-trip-summary-name"><strong>{trip.title}</strong></span>
             <span className="expense-trip-summary-total"><small>公帳總計</small><strong>{sharedAmount}</strong></span>
             <span className="expense-trip-summary-total is-personal"><small>私人花費</small><strong>{personalAmount}</strong></span>
             <ArrowRight size={18} aria-hidden="true" />
@@ -638,6 +639,7 @@ function ExpenseTripSummary({ trip, data, jpyToTwd, onOpen }) {
 
 function ExpenseTripDialog({ user, expenseStore, trip, expenseData, jpyToTwd, rateUpdatedAt, rateError, onClose }) {
     const [view, setView] = useState('shared');
+    const [transferModalOpen, setTransferModalOpen] = useState(false);
     const [error, setError] = useState('');
     const [notice, setNotice] = useState('');
     const [formKind, setFormKind] = useState(null);
@@ -831,19 +833,24 @@ function ExpenseTripDialog({ user, expenseStore, trip, expenseData, jpyToTwd, ra
         <div className="expense-modal-backdrop">
             <section className="expense-modal" role="dialog" aria-modal="true" aria-labelledby="expense-modal-title">
                 <header className="expense-modal-header">
-                    <div><p>{trip.country || 'TRIP EXPENSES'} · 記帳明細</p><h2 id="expense-modal-title">{trip.title}</h2><small>旅行 ID · {trip.id}</small></div>
+                    <div><p>{trip.country || 'TRIP EXPENSES'} · 記帳明細</p><h2 id="expense-modal-title">{trip.title}</h2></div>
                     <button className="expense-modal-close" type="button" aria-label="關閉記帳明細" onClick={onClose}><X size={19} /></button>
                 </header>
                 <div className="expense-modal-content">
                     <section className="detail-page expense-page">
                         <div className="page-heading expense-page-heading"><div><p className="section-eyebrow">TRIP EXPENSES</p><h1>記帳幫手</h1><p>公帳與私人花費分開統計。</p></div><Receipt className="expense-heading-icon" size={38} /></div>
-                        <div className="expense-toolbar"><div className="expense-tabs"><button className={view === 'shared' ? 'active' : ''} type="button" onClick={() => setView('shared')}>公帳清單<span>{sharedExpenses.length}</span></button><button className={view === 'personal' ? 'active' : ''} type="button" onClick={() => setView('personal')}>我的帳目<span>{personalExpenses.length}</span></button></div><button className="primary-button" type="button" onClick={() => openCreate(view)}><Plus size={16} />新增{view === 'shared' ? '公帳' : '個人帳'}</button></div>
+                        <div className="expense-toolbar">
+                            <div className="expense-tabs"><button className={view === 'shared' ? 'active' : ''} type="button" onClick={() => setView('shared')}>公帳清單<span>{sharedExpenses.length}</span></button><button className={view === 'personal' ? 'active' : ''} type="button" onClick={() => setView('personal')}>我的帳目<span>{personalExpenses.length}</span></button></div>
+                            <div className="expense-toolbar-actions">
+                                <button className="primary-button" type="button" onClick={() => openCreate(view)}><Plus size={16} />新增{view === 'shared' ? '公帳' : '個人帳'}</button>
+                                {view === 'shared' && <button className="expense-transfer-button" type="button" onClick={() => setTransferModalOpen(true)}><ArrowRightLeft size={16} />轉帳建議</button>}
+                            </div>
+                        </div>
                         {expenseData?.sharedError && <div className="expense-notice expense-notice-error">{expenseData.sharedError}</div>}
                         {expenseData?.personalError && <div className="expense-notice expense-notice-error">{expenseData.personalError}</div>}
                         {rateError && <div className="expense-notice expense-notice-error">即時匯率暫時無法取得，金額暫以原幣別顯示。</div>}
                         {error && <div className="expense-notice expense-notice-error">{error}</div>}
                         {notice && <div className="expense-notice expense-notice-success">{notice}</div>}
-                        {view === 'shared' && <section className="expense-settlement-panel" aria-label="建議轉帳"><div className="expense-settlement-heading"><div><p className="section-eyebrow">SETTLEMENT</p><h2>建議轉帳</h2></div><span>此旅行公帳・同幣別淨額結算</span></div>{suggestedTransfers.length ? <div className="expense-transfer-list">{suggestedTransfers.map((transfer, index) => <div className="expense-transfer-row" key={`${transfer.currency}-${transfer.from}-${transfer.to}-${index}`}><strong>{participantNames.get(transfer.from) || '旅人'}</strong><ArrowRight size={15} /><strong>{participantNames.get(transfer.to) || '旅人'}</strong><span>轉帳</span><b>{formatAmount(transfer.amount / (transfer.currency === 'JPY' ? 1 : 100), transfer.currency)}</b></div>)}</div> : <p className="expense-settlement-empty">目前沒有待結清款項</p>}<p className="expense-settlement-note">只計算此旅行公帳的未結清分攤；同一成員間的金額會先合併抵銷。</p></section>}
                         {formKind && <ExpenseForm kind={formKind} initialValue={formInitialValue} isEditing={Boolean(editingExpense)} onSubmit={saveExpense} onCancel={resetForm} working={working} />}
                         {loadState === 'loading' ? <div className="expense-empty">正在讀取此旅行的帳目…</div> : view === 'shared' ? (
                             <div className="expense-list">{sharedExpenses.length ? sharedExpenses.map((expense) => <SharedExpenseCard key={expense.id} expense={expense} user={user} onJoin={() => joinExpense(expense)} onLeave={() => leaveExpense(expense)} onEdit={() => openEdit('shared', expense)} onRemove={() => removeExpense('shared', expense)} onSelectParticipant={handleSelectParticipant} onOpenLock={(targetExpense) => setLockingExpense(targetExpense)} working={working} />) : <div className="expense-empty"><Receipt size={26} /><strong>還沒有公帳</strong><span>先建立這趟旅行的第一筆公帳。</span></div>}</div>
@@ -852,6 +859,33 @@ function ExpenseTripDialog({ user, expenseStore, trip, expenseData, jpyToTwd, ra
                     </section>
                 </div>
             </section>
+
+            {transferModalOpen && view === 'shared' && (
+                <Modal
+                    isOpen
+                    onClose={() => setTransferModalOpen(false)}
+                    eyebrow={`${trip.country || 'TRIP'} · SETTLEMENT`}
+                    title="轉帳建議"
+                    maxWidth="560px"
+                    className="expense-transfer-modal"
+                >
+                    <p className="expense-transfer-modal-summary">此旅行公帳・同幣別淨額結算</p>
+                    {suggestedTransfers.length ? (
+                        <div className="expense-transfer-list">
+                            {suggestedTransfers.map((transfer, index) => (
+                                <div className="expense-transfer-row" key={`${transfer.currency}-${transfer.from}-${transfer.to}-${index}`}>
+                                    <strong>{participantNames.get(transfer.from) || '旅人'}</strong>
+                                    <ArrowRight size={15} />
+                                    <strong>{participantNames.get(transfer.to) || '旅人'}</strong>
+                                    <span>轉帳</span>
+                                    <b>{formatAmount(transfer.amount / (transfer.currency === 'JPY' ? 1 : 100), transfer.currency)}</b>
+                                </div>
+                            ))}
+                        </div>
+                    ) : <p className="expense-settlement-empty">目前沒有待結清款項</p>}
+                    <p className="expense-settlement-note">只計算此旅行公帳的未結清分攤；同一成員間的金額會先合併抵銷。</p>
+                </Modal>
+            )}
 
             {/* 置中的浮動視窗 (Modal) */}
             {activeSettlingExpense && activeSettlingParticipant && (
