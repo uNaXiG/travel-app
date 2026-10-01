@@ -2,6 +2,11 @@
 
 以 React、Vite 與 Firebase 建置的旅行規劃工具。登入後可建立或加入旅程，集中管理每日安排、交通、住宿、旅費與個人行李清單；資料儲存在 Firebase Realtime Database，支援即時同步。
 
+## 正式網站
+[我的旅行](https://unaxig.github.io/travel-app/)
+iOS 用戶可透過 Safari 開啟後，分享至主畫面作為App使用
+
+
 ## 功能
 
 - **帳號與登入**：以電子郵件和密碼註冊、登入，支援 Google 登入與重設密碼。
