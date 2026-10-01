@@ -8,6 +8,7 @@ import TravelPlanner, { ParticipantAvatarStack, TravelIdCopyButton } from './Tra
 import { getAirportLabel } from './airports.js';
 import { getDailyLocationOptions } from './locationMapping.js';
 import { travelStore } from '../travelStore.js';
+import { fetchDailyWeather } from './weatherService.js';
 import { formatTripDateRange, getTripsWithLodging, groupFlightsByTrip, itineraryTypeOptions, toOverviewDays } from './travelUtils.js';
 import {
   AlertTriangle,
@@ -35,6 +36,12 @@ import {
   Settings,
   Sparkles,
   ShoppingBag,
+  Sun,
+  Cloud,
+  CloudFog,
+  CloudLightning,
+  CloudRain,
+  Snowflake,
   Trash2,
   Train,
   Utensils,
@@ -82,6 +89,87 @@ function isRealtimeDatabasePermissionError(error) {
   return error.code === 'PERMISSION_DENIED'
     || error.code === 'permission-denied'
     || /PERMISSION_DENIED/i.test(error.message || '');
+}
+
+function WeatherBadge({ weather }) {
+  function WeatherCondition({ text }) {
+    if (!text) return null;
+    const [mainText, sourceText] = String(text).split('·').map((part) => part.trim()).filter(Boolean);
+    return (
+      <span className="weather-condition">
+        <span className="weather-main">{mainText || text}</span>
+        {sourceText && <span className="weather-source">{sourceText}</span>}
+      </span>
+    );
+  }
+
+  function WeatherIcon() {
+    const code = weather.weatherCode;
+    if (code === 0) return <Sun className="weather-icon" size={16} />;
+    if ([1, 2, 3].includes(code)) return <Cloud className="weather-icon" size={16} />;
+    if ([45, 48].includes(code)) return <CloudFog className="weather-icon" size={16} />;
+    if ([71, 73, 75, 77, 85, 86].includes(code)) return <Snowflake className="weather-icon" size={16} />;
+    if ([95, 96, 99].includes(code)) return <CloudLightning className="weather-icon" size={16} />;
+    return <CloudRain className="weather-icon" size={16} />;
+  }
+
+  if (!weather) return null;
+
+  if (weather.state === 'loading') {
+    return (
+      <div className="day-weather" aria-label="天氣讀取中">
+        <div className="weather-place">
+          <strong>天氣</strong>
+          <span>讀取中</span>
+        </div>
+        <span className="weather-dot" aria-hidden="true" />
+        <strong className="weather-temp">--</strong>
+        <span className="weather-condition"><span className="weather-main">取得資料中…</span></span>
+      </div>
+    );
+  }
+
+  if (weather.state === 'error') {
+    return (
+      <div className="day-weather weather-error" aria-label="天氣讀取失敗">
+        <div className="weather-place">
+          <strong>天氣</strong>
+          <span>暫時無法取得</span>
+        </div>
+        <Cloud className="weather-icon" size={16} />
+        <strong className="weather-temp">--</strong>
+        <span className="weather-condition"><span className="weather-main">請稍後再試</span></span>
+      </div>
+    );
+  }
+
+  if (weather.state === 'out_of_range') {
+    return (
+      <div className="day-weather" aria-label="天氣超出預報範圍">
+        <div className="weather-place">
+          <strong>{weather.city || '天氣'}</strong>
+          <span>{weather.displayName || '每日地點'}</span>
+        </div>
+        <Cloud className="weather-icon" size={16} />
+        <strong className="weather-temp">--</strong>
+        <span className="weather-condition"><span className="weather-main">{weather.message || '尚未開放預報'}</span></span>
+      </div>
+    );
+  }
+
+  if (weather.state !== 'ready') return null;
+
+  return (
+    <div className="day-weather" aria-label={`${weather.displayName}天氣`}>
+      <div className="weather-place">
+        <strong>{weather.city}</strong>
+        <span>{weather.displayName}</span>
+      </div>
+      <WeatherIcon />
+      <strong className="weather-temp">{weather.temperatureText}</strong>
+      <WeatherCondition text={weather.condition} />
+    </div>
+  );
 }
 
 function EventCard({ event, onUpdate, onDelete }) {
@@ -177,7 +265,7 @@ function EventCard({ event, onUpdate, onDelete }) {
   );
 }
 
-function DayCard({ day, isOpen, onToggle, onAddEvent, onUpdateEvent, onDeleteEvent, onUpdateDetails }) {
+function DayCard({ day, weather, isOpen, onToggle, onAddEvent, onUpdateEvent, onDeleteEvent, onUpdateDetails }) {
   const [addOpen, setAddOpen] = useState(false);
   const [eventDraft, setEventDraft] = useState({ title: '', description: '', startTime: '', endTime: '', address: '', type: 'sight' });
   const [savingEvent, setSavingEvent] = useState(false);
@@ -245,6 +333,7 @@ function DayCard({ day, isOpen, onToggle, onAddEvent, onUpdateEvent, onDeleteEve
           <span className="day-title-line"><span className="day-title">{day.title}</span>{onUpdateDetails && <button className="day-title-edit-button" type="button" aria-label={`編輯第 ${day.id} 天地點與摘要`} title="編輯每日地點與摘要" onClick={() => { setSummaryError(''); setLocationKeyDraft(day.location?.key || ''); setSummaryDraft(day.summary || ''); setSummaryEditing(true); }}><Pencil size={15} /></button>}</span>
           <span className="day-area"><MapPin size={12} />{day.area}</span>
         </span>
+        <WeatherBadge weather={weather} />
         <ChevronDown className="day-chevron" size={18} />
       </div>
       {isOpen && (
@@ -375,6 +464,36 @@ function TripOverview({ trip, onAddEvent, onUpdateEvent, onDeleteEvent, onUpdate
   const days = toOverviewDays(trip);
   const [openDay, setOpenDay] = useState(1);
   const [pendingScrollDay, setPendingScrollDay] = useState(null);
+  const [weatherByDate, setWeatherByDate] = useState({});
+  const weatherLoadKey = days.map((day) => `${day.date}:${day.location?.key || ''}`).join('|');
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const seededState = Object.fromEntries(days.map((day) => [day.date, day.location?.key ? { state: 'loading' } : null]));
+    setWeatherByDate(seededState);
+
+    async function loadWeather() {
+      await Promise.all(days.map(async (day) => {
+        if (!day.location?.key) return;
+        try {
+          const weather = await fetchDailyWeather(day, controller.signal);
+          if (controller.signal.aborted) return;
+          const weatherState = weather?.state
+            ? weather
+            : weather
+              ? { state: 'ready', ...weather }
+              : null;
+          setWeatherByDate((current) => ({ ...current, [day.date]: weatherState }));
+        } catch {
+          if (controller.signal.aborted) return;
+          setWeatherByDate((current) => ({ ...current, [day.date]: { state: 'error' } }));
+        }
+      }));
+    }
+
+    void loadWeather();
+    return () => controller.abort();
+  }, [trip.id, weatherLoadKey]);
 
   useEffect(() => {
     if (pendingScrollDay === null || openDay !== pendingScrollDay) return undefined;
@@ -425,9 +544,10 @@ function TripOverview({ trip, onAddEvent, onUpdateEvent, onDeleteEvent, onUpdate
           <div><p className="section-eyebrow">YOUR DAILY ROUTE</p><h2>每日行程</h2></div>
           <span className="section-count">{days.length} DAYS</span>
         </div>
+        <p className="weather-disclaimer"><Info size={14} />天氣依每日地點自動查詢，可能受資料來源與查詢時間影響。</p>
         <div className="day-list">
           {days.map((day) => (
-            <DayCard key={day.id} day={day} isOpen={openDay === day.id} onToggle={() => toggleDay(day.id)} onAddEvent={onAddEvent} onUpdateDetails={onUpdateDetails} onUpdateEvent={(eventId, draft) => onUpdateEvent(day.date, eventId, draft)} onDeleteEvent={(eventId) => onDeleteEvent(day.date, eventId)} />
+            <DayCard key={day.id} day={day} weather={weatherByDate[day.date]} isOpen={openDay === day.id} onToggle={() => toggleDay(day.id)} onAddEvent={onAddEvent} onUpdateDetails={onUpdateDetails} onUpdateEvent={(eventId, draft) => onUpdateEvent(day.date, eventId, draft)} onDeleteEvent={(eventId) => onDeleteEvent(day.date, eventId)} />
           ))}
         </div>
       </section>

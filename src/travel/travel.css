@@ -467,7 +467,7 @@
   display: grid;
   position: relative;
   width: 100%;
-  grid-template-columns: 40px minmax(0, 1fr) 20px;
+  grid-template-columns: 40px minmax(0, 1fr) minmax(190px, auto) 20px;
   align-items: center;
   gap: 15px;
   padding: 18px 20px;
@@ -581,20 +581,25 @@
 
 .day-weather {
   display: grid;
-  min-height: 47px;
-  grid-template-columns: auto 22px auto 1fr;
+  min-height: 54px;
+  grid-template-columns: minmax(74px, auto) 20px auto 1fr;
   align-items: center;
   justify-content: end;
-  gap: 7px;
-  padding: 0 10px;
-  border-left: 1px solid #e8e9e2;
+  justify-self: end;
+  min-width: 0;
+  max-width: 100%;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 1px solid #e3e7dd;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #f8faf5 0%, #f1f4ee 100%);
 }
 
 .weather-place {
   display: grid;
-  gap: 2px;
+  gap: 1px;
   color: #53675b;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
 }
@@ -612,13 +617,42 @@
 .weather-temp {
   color: #394b3f;
   font-size: 18px;
-  font-weight: 500;
+  font-weight: 650;
 }
 
 .weather-condition {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
   color: #89948a;
   font-size: 9px;
   white-space: nowrap;
+}
+
+.weather-main {
+  overflow: hidden;
+  max-width: 84px;
+  color: #6f7c72;
+  font-size: 10px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+
+.weather-source {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 7px;
+  border: 1px solid #d6dbd0;
+  border-radius: 999px;
+  color: #788479;
+  background: #f7f8f4;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .2px;
 }
 
 .weather-error {
@@ -1415,7 +1449,7 @@
   }
 
   .day-card-heading {
-    grid-template-columns: 34px minmax(0, 1fr) 18px;
+    grid-template-columns: 34px minmax(0, 1fr) minmax(136px, auto) 18px;
     gap: 11px;
     padding-right: 14px;
     padding-left: 14px;
@@ -1608,20 +1642,21 @@
   }
 
   .day-weather {
-    min-height: 28px;
+    min-height: 34px;
     grid-column: 2 / 3;
     grid-row: 2;
     justify-content: start;
     margin-top: 5px;
-    padding: 0;
-    border: 0;
+    gap: 6px;
+    padding: 4px 7px;
+    border-radius: 8px;
   }
 
   .weather-place {
     display: flex;
     align-items: baseline;
     gap: 5px;
-    font-size: 9px;
+    font-size: 10px;
   }
 
   .weather-place span {
@@ -1638,7 +1673,19 @@
   }
 
   .weather-condition {
-    display: inline;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 8px;
+  }
+
+  .weather-main {
+    font-size: 9px;
+  }
+
+  .weather-source {
+    height: 16px;
+    padding: 0 6px;
     font-size: 8px;
   }
 
@@ -2123,6 +2170,7 @@
 
 .day-weather {
   border-color: #303a42;
+  background: linear-gradient(180deg, #1a232c 0%, #151e26 100%);
 }
 
 .weather-place {
@@ -2147,6 +2195,16 @@
 .weather-condition {
   color: #bdc7c9;
   font-size: 10px;
+}
+
+.weather-main {
+  color: #c9d3d4;
+}
+
+.weather-source {
+  border-color: #43515e;
+  color: #bfccd0;
+  background: #27333d;
 }
 
 .day-chevron {
@@ -2616,6 +2674,17 @@
   .weather-condition {
     color: #bdc8ca;
     font-size: 9px;
+  }
+
+  .weather-main {
+    font-size: 9px;
+  }
+
+  .weather-source {
+    border-color: #43515e;
+    color: #bfccd0;
+    background: #27333d;
+    font-size: 8px;
   }
 
   .day-summary {
@@ -6077,5 +6146,79 @@
 
   .packing-summary-progress-value {
     font-size: 15px;
+  }
+}
+
+@media (max-width: 900px) {
+  .day-card-heading {
+    grid-template-columns: 34px minmax(0, 1fr) 18px;
+    align-items: start;
+    gap: 9px;
+    padding: 14px 12px;
+  }
+
+  .day-index {
+    align-self: start;
+    padding-top: 2px;
+    font-size: 20px;
+  }
+
+  .day-title {
+    overflow: visible;
+    font-size: 13px;
+    line-height: 1.45;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .day-weather {
+    min-height: 36px;
+    grid-column: 2 / 3;
+    grid-row: 2;
+    justify-content: start;
+    justify-self: start;
+    margin-top: 4px;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 8px;
+  }
+
+  .weather-place {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    font-size: 10px;
+  }
+
+  .weather-place span {
+    font-size: 8px;
+  }
+
+  .weather-temp {
+    font-size: 15px;
+  }
+
+  .weather-condition {
+    gap: 4px;
+  }
+
+  .weather-main {
+    max-width: 72px;
+    font-size: 9px;
+  }
+
+  .weather-source {
+    height: 16px;
+    padding: 0 6px;
+    font-size: 8px;
+  }
+
+  .day-chevron {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .day-card-body {
+    padding: 10px 12px 16px;
   }
 }
