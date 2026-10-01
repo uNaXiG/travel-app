@@ -833,7 +833,7 @@ function ExpenseTripDialog({ user, expenseStore, trip, expenseData, jpyToTwd, ra
                 </header>
                 <div className="expense-modal-content">
                     <section className="detail-page expense-page">
-                        <div className="page-heading expense-page-heading"><div><p className="section-eyebrow">TRIP EXPENSES</p><h1>記帳幫手</h1><p>公帳與私人花費分開統計。</p></div><Receipt className="expense-heading-icon" size={38} /></div>
+                        {/* <div className="page-heading expense-page-heading"><div><p className="section-eyebrow">TRIP EXPENSES</p><h1>記帳幫手</h1><p>公帳與私人花費分開統計。</p></div><Receipt className="expense-heading-icon" size={38} /></div> */}
                         <div className="expense-toolbar">
                             <div className="expense-tabs"><button className={view === 'shared' ? 'active' : ''} type="button" onClick={() => setView('shared')}>公帳清單<span>{sharedExpenses.length}</span></button><button className={view === 'personal' ? 'active' : ''} type="button" onClick={() => setView('personal')}>我的帳目<span>{personalExpenses.length}</span></button></div>
                             <div className="expense-toolbar-actions">
@@ -995,7 +995,7 @@ export default function ExpensePage({ user, expenseStore, trips }) {
     return (
         <>
             <section className="detail-page expense-page expense-overview-page">
-                <div className="page-heading expense-page-heading"><div><p className="section-eyebrow">TRIP EXPENSES</p><h1>記帳幫手</h1><p>選擇旅程查看公帳與私人花費。</p></div><Receipt className="expense-heading-icon" size={38} /></div>
+                <div className="page-heading expense-page-heading"><div><p className="section-eyebrow">TRIP EXPENSES</p><h1>記帳幫手</h1></div><Receipt className="expense-heading-icon" size={38} /></div>
                 {trips.length ? <div className="expense-trip-list">{trips.map((trip) => <ExpenseTripSummary key={trip.id} trip={trip} data={tripExpenseData[trip.id]} jpyToTwd={jpyToTwd} onOpen={() => setSelectedTripId(trip.id)} />)}</div> : <div className="expense-empty"><Receipt size={26} /><strong>目前沒有可記帳的旅程</strong><span>建立或加入一趟旅行後，即可開始記錄支出。</span></div>}
             </section>
             {selectedTrip && <ExpenseTripDialog key={selectedTrip.id} user={user} expenseStore={expenseStore} trip={selectedTrip} expenseData={tripExpenseData[selectedTrip.id]} jpyToTwd={jpyToTwd} rateUpdatedAt={rateUpdatedAt} rateError={rateError} onClose={() => setSelectedTripId(null)} />}

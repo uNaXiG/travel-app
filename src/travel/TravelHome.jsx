@@ -820,7 +820,6 @@ function PackingListPage({ user, packingStore, trips }) {
       <div className="page-heading">
         <p className="section-eyebrow">READY FOR THE JOURNEY</p>
         <h1>攜帶清單</h1>
-        <p>依照旅行分開整理行李，完成一項就勾選帶了。</p>
       </div>
 
       {trips.length === 0 ? (
@@ -862,8 +861,6 @@ function PackingListPage({ user, packingStore, trips }) {
           })}
         </div>
       )}
-
-      <aside className="packing-privacy-note"><Info size={15} /><span>清單只會存取目前登入帳號的資料，其他使用者無法讀取。</span></aside>
 
       {selectedTrip && (
         <PackingTripModal
@@ -1274,7 +1271,7 @@ export default function TravelHome({ user, onSignOut, packingStore, expenseStore
         <a className="trip-brand" href="#trip" onClick={(event) => { event.preventDefault(); setActiveTravelId(null); setSection('itinerary'); }}>
           <span className="trip-brand-mark" aria-hidden="true"><Compass size={17} strokeWidth={1.7} /></span><span className="trip-brand-name">TRAVEL<small>JOURNAL</small></span>
         </a>
-        <div className="sidebar-trip-label"><span>YOUR TRIP</span><strong>{activeTrip?.title || '開始規劃旅程'}</strong></div>
+        <div className="sidebar-trip-label"><strong style={{ fontSize: '14px' }}>{activeTrip?.title || '開始規劃旅程'}</strong></div>
         <nav className="trip-nav" aria-label="行程導覽">
           {navItems.map(({ id, label, icon: Icon }) => (
             <button className={`trip-nav-item${section === id ? ' active' : ''}`} key={id} type="button" onClick={() => { if (id === 'itinerary') setActiveTravelId(null); setSection(id); }}>
