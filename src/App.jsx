@@ -149,6 +149,7 @@ function App() {
               <span>{busyProvider === 'google' ? <><LoaderCircle className="spinner" size={17} />Google 登入中…</> : '使用 Google 帳戶登入'}</span>
             </button>
 
+            {/* Facebook login temporarily disabled.
             <button className="social-login-button social-login-facebook" type="button" onClick={() => handleSocialSignIn('facebook')} disabled={Boolean(busyProvider)}>
               <span className="social-login-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" width="17" height="17">
@@ -156,7 +157,7 @@ function App() {
                 </svg>
               </span>
               <span>{busyProvider === 'facebook' ? <><LoaderCircle className="spinner" size={17} />Facebook 登入中…</> : '使用 Facebook 帳戶登入'}</span>
-            </button>
+            </button> */}
           </div>
 
           <p className="terms">
