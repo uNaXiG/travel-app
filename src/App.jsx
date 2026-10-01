@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   FacebookAuthProvider,
   GoogleAuthProvider,
+  getRedirectResult,
   onAuthStateChanged,
   signInWithRedirect,
   signInWithPopup,
@@ -30,9 +31,8 @@ const firebaseErrors = {
 function shouldUseRedirectFlow() {
   if (typeof navigator === 'undefined') return false;
   const ua = navigator.userAgent || '';
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(ua);
   const isInAppBrowser = /FBAN|FBAV|Instagram|Line|MicroMessenger/i.test(ua);
-  return isMobile || isInAppBrowser;
+  return isInAppBrowser;
 }
 
 function App() {
@@ -43,6 +43,14 @@ function App() {
 
   useEffect(() => {
     if (!auth) return undefined;
+
+    getRedirectResult(auth).catch((error) => {
+      setNotice({
+        type: 'error',
+        text: firebaseErrors[error.code] || '目前無法完成登入，請稍後再試。',
+      });
+    });
+
     return onAuthStateChanged(auth, (nextUser) => {
       setFirebaseUser(nextUser);
       setAuthReady(true);
@@ -65,14 +73,24 @@ function App() {
     setBusyProvider(providerType);
     try {
       const provider = providerType === 'facebook' ? new FacebookAuthProvider() : new GoogleAuthProvider();
-      if (shouldUseRedirectFlow()) {
-        await signInWithRedirect(auth, provider);
-        return;
-      }
-
       await signInWithPopup(auth, provider);
       setNotice({ type: 'success', text: '登入成功，準備出發。' });
     } catch (error) {
+      const fallbackToRedirectCodes = ['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment'];
+      if (shouldUseRedirectFlow() || fallbackToRedirectCodes.includes(error.code)) {
+        try {
+          const provider = providerType === 'facebook' ? new FacebookAuthProvider() : new GoogleAuthProvider();
+          await signInWithRedirect(auth, provider);
+          return;
+        } catch (redirectError) {
+          setNotice({
+            type: 'error',
+            text: firebaseErrors[redirectError.code] || '目前無法登入，請稍後再試。',
+          });
+          return;
+        }
+      }
+
       if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
         setNotice({ type: 'info', text: firebaseErrors[error.code] });
         return;
