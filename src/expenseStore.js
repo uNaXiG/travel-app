@@ -39,17 +39,17 @@ function expenseFields(input) {
 }
 
 export const expenseStore = {
-    subscribeShared(onExpenses, onError) {
-        return onValue(expenseReference('sharedExpenses'), (snapshot) => onExpenses(readExpenses(snapshot)), onError);
+    subscribeShared(tripId, onExpenses, onError) {
+        return onValue(expenseReference(`trips/${tripId}/sharedExpenses`), (snapshot) => onExpenses(readExpenses(snapshot)), onError);
     },
 
-    subscribePersonal(uid, onExpenses, onError) {
-        return onValue(expenseReference(`users/${uid}/expenses`), (snapshot) => onExpenses(readExpenses(snapshot)), onError);
+    subscribePersonal(uid, tripId, onExpenses, onError) {
+        return onValue(expenseReference(`users/${uid}/tripExpenses/${tripId}`), (snapshot) => onExpenses(readExpenses(snapshot)), onError);
     },
 
-    createShared(uid, participant, input) {
-        const expenseReference = push(expenseReferenceRoot('sharedExpenses'));
-        return set(expenseReference, {
+    createShared(tripId, uid, participant, input) {
+        const sharedReference = push(expenseReferenceRoot(`trips/${tripId}/sharedExpenses`));
+        return set(sharedReference, {
             ...expenseFields(input),
             creatorId: uid,
             creatorName: participant.name || '旅人',
@@ -66,19 +66,19 @@ export const expenseStore = {
         });
     },
 
-    updateShared(expenseId, creatorId, input) {
-        return update(expenseReference(`sharedExpenses/${expenseId}`), {
+    updateShared(tripId, expenseId, creatorId, input) {
+        return update(expenseReference(`trips/${tripId}/sharedExpenses/${expenseId}`), {
             ...expenseFields(input),
             [`participants/${creatorId}/settled`]: input.paymentStatus === 'paid',
         });
     },
 
-    removeShared(expenseId) {
-        return remove(expenseReference(`sharedExpenses/${expenseId}`));
+    removeShared(tripId, expenseId) {
+        return remove(expenseReference(`trips/${tripId}/sharedExpenses/${expenseId}`));
     },
 
-    joinShared(expenseId, uid, participant) {
-        return set(expenseReference(`sharedExpenses/${expenseId}/participants/${uid}`), {
+    joinShared(tripId, expenseId, uid, participant) {
+        return set(expenseReference(`trips/${tripId}/sharedExpenses/${expenseId}/participants/${uid}`), {
             uid,
             name: participant.name || '旅人',
             photoURL: participant.photoURL || '',
@@ -87,32 +87,32 @@ export const expenseStore = {
         });
     },
 
-    leaveShared(expenseId, uid) {
-        return remove(expenseReference(`sharedExpenses/${expenseId}/participants/${uid}`));
+    leaveShared(tripId, expenseId, uid) {
+        return remove(expenseReference(`trips/${tripId}/sharedExpenses/${expenseId}/participants/${uid}`));
     },
 
-    setParticipantSettled(expenseId, uid, settled, creatorId) {
+    setParticipantSettled(tripId, expenseId, uid, settled, creatorId) {
         const updates = {
             [`participants/${uid}/settled`]: settled,
         };
         if (uid === creatorId) updates.paymentStatus = settled ? 'paid' : 'unpaid';
-        return update(expenseReference(`sharedExpenses/${expenseId}`), updates);
+        return update(expenseReference(`trips/${tripId}/sharedExpenses/${expenseId}`), updates);
     },
 
-    createPersonal(uid, input) {
-        const personalReference = push(expenseReferenceRoot(`users/${uid}/expenses`));
+    createPersonal(uid, tripId, input) {
+        const personalReference = push(expenseReferenceRoot(`users/${uid}/tripExpenses/${tripId}`));
         return set(personalReference, {
             ...expenseFields(input),
             createdAt: serverTimestamp(),
         });
     },
 
-    updatePersonal(uid, expenseId, input) {
-        return update(expenseReference(`users/${uid}/expenses/${expenseId}`), expenseFields(input));
+    updatePersonal(uid, tripId, expenseId, input) {
+        return update(expenseReference(`users/${uid}/tripExpenses/${tripId}/${expenseId}`), expenseFields(input));
     },
 
-    removePersonal(uid, expenseId) {
-        return remove(expenseReference(`users/${uid}/expenses/${expenseId}`));
+    removePersonal(uid, tripId, expenseId) {
+        return remove(expenseReference(`users/${uid}/tripExpenses/${tripId}/${expenseId}`));
     },
 };
 

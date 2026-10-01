@@ -128,7 +128,9 @@ test('trip deletion includes the trip and every participant membership index', (
   }), {
     'trips/trip-123': null,
     'users/owner/trips/trip-123': null,
+    'users/owner/tripExpenses/trip-123': null,
     'users/friend/trips/trip-123': null,
+    'users/friend/tripExpenses/trip-123': null,
   });
 });
 

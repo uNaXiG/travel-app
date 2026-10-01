@@ -888,7 +888,7 @@ export default function TravelHome({ user, onSignOut, packingStore, expenseStore
           {section === 'itinerary' && activeTrip && <TripOverview key={activeTrip.id} trip={activeTrip} onAddEvent={(date, event) => addTripEvent(activeTrip.id, date, event)} onUpdateEvent={(date, eventId, event) => updateTripEvent(activeTrip.id, date, eventId, event)} onDeleteEvent={(date, eventId) => deleteTripEvent(activeTrip.id, date, eventId)} onUpdateDetails={(date, details) => updateTripDayDetails(activeTrip.id, date, details)} onBack={() => setActiveTravelId(null)} />}
           {section === 'transport' && <TransportationPage trips={travelItems} />}
           {section === 'lodging' && <LodgingPage trips={travelItems} />}
-          {section === 'expenses' && <ExpensePage user={user} expenseStore={expenseStore} />}
+          {section === 'expenses' && <ExpensePage user={user} expenseStore={expenseStore} trips={travelItems} />}
           {section === 'packing' && <PackingListPage items={packingItems} loadState={packingLoadState} error={packingError} actionError={packingActionError} working={packingWorking} onAdd={addPackingItem} onToggle={togglePackingItem} onUpdate={updatePackingItem} onRemove={removePackingItem} onReorder={reorderPackingItems} clearActionError={() => setPackingActionError('')} />}
         </main>
       </div>

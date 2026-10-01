@@ -14,6 +14,7 @@ import {
     Wallet,
     X,
 } from 'lucide-react';
+import { totalExpensesInCurrency, totalExpensesInTwd, totalsByCurrency } from '../expenseUtils.js';
 
 const categories = ['車票', '機票', '住宿', '門票', '飲食', '購物'];
 const paymentMethods = ['現金支付', '信用卡', 'Apple Pay', '其他線上支付'];
@@ -164,7 +165,7 @@ function ExpenseForm({ kind, initialValue, isEditing, onSubmit, onCancel, workin
                 <button className="icon-button" type="button" aria-label="關閉表單" onClick={onCancel}><X size={17} /></button>
             </div>
             <div className="expense-form-grid">
-                <label><span>公帳標題</span><input required maxLength={60} value={form.title} onChange={(event) => updateField('title', event.target.value)} placeholder="例如：名古屋站到機場車票" /></label>
+                <label><span>{isShared ? '公帳標題' : '私人帳目標題'}</span><input required maxLength={60} value={form.title} onChange={(event) => updateField('title', event.target.value)} placeholder="例如：名古屋站到機場車票" /></label>
                 <label><span>帳目分類</span><select value={form.category} onChange={(event) => updateField('category', event.target.value)}>{categories.map((category) => <option key={category}>{category}</option>)}</select></label>
                 <label className="expense-form-wide"><span>描述</span><textarea maxLength={160} value={form.description} onChange={(event) => updateField('description', event.target.value)} placeholder="補充這筆支出的內容" /></label>
                 <label><span>金額</span><input required min="0.01" step="0.01" type="number" value={form.amount} onChange={(event) => updateField('amount', event.target.value)} placeholder="0" /></label>
@@ -243,19 +244,51 @@ function PersonalExpenseCard({ expense, onEdit, onRemove, working }) {
     );
 }
 
-export default function ExpensePage({ user, expenseStore }) {
+function formatSummaryAmount(expenses, jpyToTwd) {
+    const totalTwd = totalExpensesInTwd(expenses, jpyToTwd);
+    if (totalTwd !== null) return formatAmount(totalTwd, 'TWD');
+    const totals = totalsByCurrency(expenses);
+    const amounts = [];
+    if (totals.TWD) amounts.push(formatAmount(totals.TWD, 'TWD'));
+    if (totals.JPY) amounts.push(formatAmount(totals.JPY, 'JPY'));
+    return amounts.length ? amounts.join(' · ') : formatAmount(0, 'TWD');
+}
+
+function ExpenseTripSummary({ trip, data, jpyToTwd, onOpen }) {
+    const sharedExpenses = data?.shared || [];
+    const personalExpenses = data?.personal || [];
+    const sharedAmount = data?.sharedError ? '無法讀取' : data?.sharedReady ? formatSummaryAmount(sharedExpenses, jpyToTwd) : '讀取中…';
+    const personalAmount = data?.personalError ? '無法讀取' : data?.personalReady ? formatSummaryAmount(personalExpenses, jpyToTwd) : '讀取中…';
+
+    return (
+        <button className="expense-trip-summary" type="button" onClick={onOpen} aria-label={`開啟${trip.title}記帳，公帳總計 ${sharedAmount}，私人花費 ${personalAmount}`}>
+            <span className="expense-trip-summary-name"><strong>{trip.title}</strong><small>旅行 ID · {trip.id}</small></span>
+            <span className="expense-trip-summary-total"><small>公帳總計</small><strong>{sharedAmount}</strong></span>
+            <span className="expense-trip-summary-total is-personal"><small>私人花費</small><strong>{personalAmount}</strong></span>
+            <ArrowRight size={18} aria-hidden="true" />
+        </button>
+    );
+}
+
+function ExpenseTripDialog({ user, expenseStore, trip, expenseData, jpyToTwd, rateUpdatedAt, rateError, onClose }) {
     const [view, setView] = useState('shared');
-    const [sharedExpenses, setSharedExpenses] = useState([]);
-    const [personalExpenses, setPersonalExpenses] = useState([]);
-    const [loadState, setLoadState] = useState('loading');
     const [error, setError] = useState('');
     const [notice, setNotice] = useState('');
     const [formKind, setFormKind] = useState(null);
     const [editingExpense, setEditingExpense] = useState(null);
     const [working, setWorking] = useState(false);
     const [displayCurrency, setDisplayCurrency] = useState('TWD');
-    const [jpyToTwd, setJpyToTwd] = useState(null);
-    const [rateUpdatedAt, setRateUpdatedAt] = useState(null);
+    const sharedExpenses = expenseData?.shared || [];
+    const personalExpenses = expenseData?.personal || [];
+    const loadState = expenseData?.sharedReady && expenseData?.personalReady ? 'ready' : 'loading';
+
+    useEffect(() => {
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = previousOverflow;
+        };
+    }, []);
 
     useEffect(() => {
         if (!notice) return undefined;
@@ -263,74 +296,14 @@ export default function ExpensePage({ user, expenseStore }) {
         return () => window.clearTimeout(timer);
     }, [notice]);
 
-    useEffect(() => {
-        const unsubscribeShared = expenseStore.subscribeShared(setSharedExpenses, () => {
-            setLoadState('error');
-            setError('無法讀取公帳，請檢查 Firebase Realtime Database 設定。');
-        });
-        const unsubscribePersonal = expenseStore.subscribePersonal(user.uid, setPersonalExpenses, () => {
-            setLoadState('error');
-            setError('無法讀取個人帳目，請檢查 Firebase Realtime Database 設定。');
-        });
-        setLoadState('ready');
-        return () => {
-            unsubscribeShared();
-            unsubscribePersonal();
-        };
-    }, [expenseStore, user.uid]);
-
-    useEffect(() => {
-        let active = true;
-        async function loadRate() {
-            try {
-                const response = await fetch('https://open.er-api.com/v6/latest/JPY');
-                if (!response.ok) throw new Error('Exchange rate request failed');
-                const result = await response.json();
-                const rate = Number(result.rates?.TWD);
-                if (!active || !rate) throw new Error('Exchange rate unavailable');
-                setJpyToTwd(rate);
-                setRateUpdatedAt(new Date());
-            } catch {
-                if (active) setError('即時匯率暫時無法取得，請稍後重試。');
-            }
-        }
-        loadRate();
-        const interval = window.setInterval(loadRate, 30 * 60 * 1000);
-        return () => {
-            active = false;
-            window.clearInterval(interval);
-        };
-    }, []);
-
-    const ownedSharedExpenses = useMemo(() => sharedExpenses.filter((expense) => expense.creatorId === user.uid), [sharedExpenses, user.uid]);
-    const participatingSharedExpenses = useMemo(() => sharedExpenses.filter((expense) => participantEntries(expense).some((participant) => participant.uid === user.uid)), [sharedExpenses, user.uid]);
     const suggestedTransfers = useMemo(() => calculateSuggestedTransfers(sharedExpenses), [sharedExpenses]);
     const participantNames = useMemo(() => {
         const names = new Map();
         sharedExpenses.forEach((expense) => participantEntries(expense).forEach((participant) => names.set(participant.uid, participant.name || '旅人')));
         return names;
     }, [sharedExpenses]);
-    const totalTwd = useMemo(() => {
-        if (!jpyToTwd) return null;
-        const personalTotal = personalExpenses.reduce((total, expense) => total + (expense.currency === 'JPY' ? Number(expense.amount) * jpyToTwd : Number(expense.amount)), 0);
-        const ownedExpensesTotal = ownedSharedExpenses.reduce((total, expense) => {
-            const multiplier = expense.currency === 'JPY' ? 1 : 100;
-            const amount = Math.round(Number(expense.amount || 0) * multiplier);
-            const settledShares = expenseSharesInMinorUnits(expense).reduce((settledTotal, { participant, amount: share }) => {
-                return participant.uid !== user.uid && participant.settled ? settledTotal + share : settledTotal;
-            }, 0);
-            const outstandingAmount = Math.max(0, amount - settledShares) / multiplier;
-            return total + (expense.currency === 'JPY' ? outstandingAmount * jpyToTwd : outstandingAmount);
-        }, 0);
-        const settledParticipationTotal = participatingSharedExpenses.reduce((total, expense) => {
-            if (expense.creatorId === user.uid) return total;
-            const ownShare = expenseSharesInMinorUnits(expense).find(({ participant }) => participant.uid === user.uid);
-            if (!ownShare?.participant.settled) return total;
-            const share = ownShare.amount / (expense.currency === 'JPY' ? 1 : 100);
-            return total + (expense.currency === 'JPY' ? share * jpyToTwd : share);
-        }, 0);
-        return personalTotal + ownedExpensesTotal + settledParticipationTotal;
-    }, [jpyToTwd, personalExpenses, ownedSharedExpenses, participatingSharedExpenses, user.uid]);
+    const sharedTotalTwd = useMemo(() => totalExpensesInTwd(sharedExpenses, jpyToTwd), [sharedExpenses, jpyToTwd]);
+    const personalTotalTwd = useMemo(() => totalExpensesInTwd(personalExpenses, jpyToTwd), [personalExpenses, jpyToTwd]);
 
     function resetForm() {
         setFormKind(null);
@@ -342,10 +315,10 @@ export default function ExpensePage({ user, expenseStore }) {
         setError('');
         try {
             if (formKind === 'shared') {
-                if (editingExpense) await expenseStore.updateShared(editingExpense.id, user.uid, form);
-                else await expenseStore.createShared(user.uid, { name: user.displayName || user.email?.split('@')[0], photoURL: user.photoURL || '' }, form);
-            } else if (editingExpense) await expenseStore.updatePersonal(user.uid, editingExpense.id, form);
-            else await expenseStore.createPersonal(user.uid, form);
+                if (editingExpense) await expenseStore.updateShared(trip.id, editingExpense.id, user.uid, form);
+                else await expenseStore.createShared(trip.id, user.uid, { name: user.displayName || user.email?.split('@')[0], photoURL: user.photoURL || '' }, form);
+            } else if (editingExpense) await expenseStore.updatePersonal(user.uid, trip.id, editingExpense.id, form);
+            else await expenseStore.createPersonal(user.uid, trip.id, form);
             setNotice('帳目已儲存');
             resetForm();
         } catch {
@@ -359,8 +332,8 @@ export default function ExpensePage({ user, expenseStore }) {
         if (!window.confirm(`確定要刪除「${expense.title}」嗎？`)) return;
         setWorking(true);
         try {
-            if (kind === 'shared') await expenseStore.removeShared(expense.id);
-            else await expenseStore.removePersonal(user.uid, expense.id);
+            if (kind === 'shared') await expenseStore.removeShared(trip.id, expense.id);
+            else await expenseStore.removePersonal(user.uid, trip.id, expense.id);
             setNotice('帳目已刪除');
         } catch {
             setError('帳目刪除失敗，請稍後再試。');
@@ -372,7 +345,7 @@ export default function ExpensePage({ user, expenseStore }) {
     async function joinExpense(expense) {
         setWorking(true);
         try {
-            await expenseStore.joinShared(expense.id, user.uid, { name: user.displayName || user.email?.split('@')[0], photoURL: user.photoURL || '' });
+            await expenseStore.joinShared(trip.id, expense.id, user.uid, { name: user.displayName || user.email?.split('@')[0], photoURL: user.photoURL || '' });
             setNotice('已加入分帳');
         } catch {
             setError('加入分帳失敗，請稍後再試。');
@@ -385,7 +358,7 @@ export default function ExpensePage({ user, expenseStore }) {
         if (!window.confirm(`確定要退出「${expense.title}」的分帳嗎？`)) return;
         setWorking(true);
         try {
-            await expenseStore.leaveShared(expense.id, user.uid);
+            await expenseStore.leaveShared(trip.id, expense.id, user.uid);
             setNotice('已退出分帳');
         } catch {
             setError('退出分帳失敗，請稍後再試。');
@@ -397,7 +370,7 @@ export default function ExpensePage({ user, expenseStore }) {
     async function settleParticipant(expense, participantUid, settled) {
         setWorking(true);
         try {
-            await expenseStore.setParticipantSettled(expense.id, participantUid, settled, expense.creatorId);
+            await expenseStore.setParticipantSettled(trip.id, expense.id, participantUid, settled, expense.creatorId);
             setNotice(settled ? '已標記為結清' : '已取消結清標記');
         } catch {
             setError('更新結清狀態失敗，請稍後再試。');
@@ -428,20 +401,113 @@ export default function ExpensePage({ user, expenseStore }) {
         paymentStatus: editingExpense.paymentStatus || (participantEntries(editingExpense).find((participant) => participant.uid === editingExpense.creatorId)?.settled ? 'paid' : 'unpaid'),
     } : emptyForm;
 
-    const displayTotal = totalTwd === null ? null : displayCurrency === 'TWD' ? totalTwd : totalTwd / jpyToTwd;
+    const activeExpenses = view === 'shared' ? sharedExpenses : personalExpenses;
+    const displayTotal = totalExpensesInCurrency(activeExpenses, displayCurrency, jpyToTwd);
 
     return (
-        <section className="detail-page expense-page">
-            <div className="page-heading expense-page-heading"><div><p className="section-eyebrow">TRIP EXPENSES</p><h1>記帳幫手</h1><p>一起記錄旅程支出，清楚知道每個人的應付金額。</p></div><Receipt className="expense-heading-icon" size={38} /></div>
-            <div className="expense-toolbar"><div className="expense-tabs"><button className={view === 'shared' ? 'active' : ''} type="button" onClick={() => setView('shared')}>公帳清單<span>{sharedExpenses.length}</span></button><button className={view === 'personal' ? 'active' : ''} type="button" onClick={() => setView('personal')}>我的帳目<span>{personalExpenses.length}</span></button></div><button className="primary-button" type="button" onClick={() => openCreate(view)}><Plus size={16} />新增{view === 'shared' ? '公帳' : '個人帳'}</button></div>
-            {error && <div className="expense-notice expense-notice-error">{error}</div>}
-            {notice && <div className="expense-notice expense-notice-success">{notice}</div>}
-            {view === 'shared' && <section className="expense-settlement-panel" aria-label="建議轉帳"><div className="expense-settlement-heading"><div><p className="section-eyebrow">SETTLEMENT</p><h2>建議轉帳</h2></div><span>所有公帳・同幣別淨額結算</span></div>{suggestedTransfers.length ? <div className="expense-transfer-list">{suggestedTransfers.map((transfer, index) => <div className="expense-transfer-row" key={`${transfer.currency}-${transfer.from}-${transfer.to}-${index}`}><strong>{participantNames.get(transfer.from) || '旅人'}</strong><ArrowRight size={15} /><strong>{participantNames.get(transfer.to) || '旅人'}</strong><span>轉帳</span><b>{formatAmount(transfer.amount / (transfer.currency === 'JPY' ? 1 : 100), transfer.currency)}</b></div>)}</div> : <p className="expense-settlement-empty">目前沒有待結清款項</p>}<p className="expense-settlement-note">所有公帳的未結清分攤都會計入；同一成員間的金額會先合併抵銷。</p></section>}
-            {formKind && <ExpenseForm kind={formKind} initialValue={formInitialValue} isEditing={Boolean(editingExpense)} onSubmit={saveExpense} onCancel={resetForm} working={working} />}
-            {loadState === 'loading' ? <div className="expense-empty">正在讀取帳目…</div> : view === 'shared' ? (
-                <div className="expense-list">{sharedExpenses.length ? sharedExpenses.map((expense) => <SharedExpenseCard key={expense.id} expense={expense} user={user} onJoin={() => joinExpense(expense)} onLeave={() => leaveExpense(expense)} onEdit={() => openEdit('shared', expense)} onRemove={() => removeExpense('shared', expense)} onSettle={(participantUid, settled) => settleParticipant(expense, participantUid, settled)} working={working} />) : <div className="expense-empty"><Receipt size={26} /><strong>還沒有公帳</strong><span>先建立第一筆旅程公帳吧。</span></div>}</div>
-            ) : <div className="expense-list">{personalExpenses.length ? personalExpenses.map((expense) => <PersonalExpenseCard key={expense.id} expense={expense} onEdit={() => openEdit('personal', expense)} onRemove={() => removeExpense('personal', expense)} working={working} />) : <div className="expense-empty"><Wallet size={26} /><strong>還沒有個人帳目</strong><span>記下只屬於自己的旅程支出。</span></div>}</div>}
-            <div className="expense-total-bar"><div><span>個人支出合計</span><strong>{displayTotal === null ? '匯率讀取中…' : formatAmount(displayTotal, displayCurrency)}</strong><small>{rateUpdatedAt ? `匯率更新於 ${formatDate(rateUpdatedAt.getTime())}` : '正在取得即時匯率'}</small></div><div className="currency-toggle" aria-label="總額顯示幣別"><button className={displayCurrency === 'TWD' ? 'active' : ''} type="button" onClick={() => setDisplayCurrency('TWD')}>台幣</button><button className={displayCurrency === 'JPY' ? 'active' : ''} type="button" onClick={() => setDisplayCurrency('JPY')}>日圓</button></div></div>
-        </section>
+        <div className="expense-modal-backdrop">
+            <section className="expense-modal" role="dialog" aria-modal="true" aria-labelledby="expense-modal-title">
+                <header className="expense-modal-header">
+                    <div><p>{trip.country || 'TRIP EXPENSES'} · 記帳明細</p><h2 id="expense-modal-title">{trip.title}</h2><small>旅行 ID · {trip.id}</small></div>
+                    <button className="expense-modal-close" type="button" aria-label="關閉記帳明細" onClick={onClose}><X size={19} /></button>
+                </header>
+                <div className="expense-modal-content">
+                    <section className="detail-page expense-page">
+                        <div className="page-heading expense-page-heading"><div><p className="section-eyebrow">TRIP EXPENSES</p><h1>記帳幫手</h1><p>公帳與私人花費分開統計。</p></div><Receipt className="expense-heading-icon" size={38} /></div>
+                        <div className="expense-toolbar"><div className="expense-tabs"><button className={view === 'shared' ? 'active' : ''} type="button" onClick={() => setView('shared')}>公帳清單<span>{sharedExpenses.length}</span></button><button className={view === 'personal' ? 'active' : ''} type="button" onClick={() => setView('personal')}>我的帳目<span>{personalExpenses.length}</span></button></div><button className="primary-button" type="button" onClick={() => openCreate(view)}><Plus size={16} />新增{view === 'shared' ? '公帳' : '個人帳'}</button></div>
+                        {expenseData?.sharedError && <div className="expense-notice expense-notice-error">{expenseData.sharedError}</div>}
+                        {expenseData?.personalError && <div className="expense-notice expense-notice-error">{expenseData.personalError}</div>}
+                        {rateError && <div className="expense-notice expense-notice-error">即時匯率暫時無法取得，金額暫以原幣別顯示。</div>}
+                        {error && <div className="expense-notice expense-notice-error">{error}</div>}
+                        {notice && <div className="expense-notice expense-notice-success">{notice}</div>}
+                        {view === 'shared' && <section className="expense-settlement-panel" aria-label="建議轉帳"><div className="expense-settlement-heading"><div><p className="section-eyebrow">SETTLEMENT</p><h2>建議轉帳</h2></div><span>此旅行公帳・同幣別淨額結算</span></div>{suggestedTransfers.length ? <div className="expense-transfer-list">{suggestedTransfers.map((transfer, index) => <div className="expense-transfer-row" key={`${transfer.currency}-${transfer.from}-${transfer.to}-${index}`}><strong>{participantNames.get(transfer.from) || '旅人'}</strong><ArrowRight size={15} /><strong>{participantNames.get(transfer.to) || '旅人'}</strong><span>轉帳</span><b>{formatAmount(transfer.amount / (transfer.currency === 'JPY' ? 1 : 100), transfer.currency)}</b></div>)}</div> : <p className="expense-settlement-empty">目前沒有待結清款項</p>}<p className="expense-settlement-note">只計算此旅行公帳的未結清分攤；同一成員間的金額會先合併抵銷。</p></section>}
+                        {formKind && <ExpenseForm kind={formKind} initialValue={formInitialValue} isEditing={Boolean(editingExpense)} onSubmit={saveExpense} onCancel={resetForm} working={working} />}
+                        {loadState === 'loading' ? <div className="expense-empty">正在讀取此旅行的帳目…</div> : view === 'shared' ? (
+                            <div className="expense-list">{sharedExpenses.length ? sharedExpenses.map((expense) => <SharedExpenseCard key={expense.id} expense={expense} user={user} onJoin={() => joinExpense(expense)} onLeave={() => leaveExpense(expense)} onEdit={() => openEdit('shared', expense)} onRemove={() => removeExpense('shared', expense)} onSettle={(participantUid, settled) => settleParticipant(expense, participantUid, settled)} working={working} />) : <div className="expense-empty"><Receipt size={26} /><strong>還沒有公帳</strong><span>先建立這趟旅行的第一筆公帳。</span></div>}</div>
+                        ) : <div className="expense-list">{personalExpenses.length ? personalExpenses.map((expense) => <PersonalExpenseCard key={expense.id} expense={expense} onEdit={() => openEdit('personal', expense)} onRemove={() => removeExpense('personal', expense)} working={working} />) : <div className="expense-empty"><Wallet size={26} /><strong>還沒有個人帳目</strong><span>記下這趟旅行中只屬於自己的支出。</span></div>}</div>}
+                        <div className="expense-total-bar"><div><span>{view === 'shared' ? '公帳總計' : '私人花費'}</span><strong>{displayTotal === null ? '匯率讀取中…' : formatAmount(displayTotal, displayCurrency)}</strong><small>{rateUpdatedAt ? `匯率更新於 ${formatDate(rateUpdatedAt.getTime())}` : '正在取得即時匯率'}</small></div><div className="currency-toggle" aria-label="總額顯示幣別"><button className={displayCurrency === 'TWD' ? 'active' : ''} type="button" onClick={() => setDisplayCurrency('TWD')}>台幣</button><button className={displayCurrency === 'JPY' ? 'active' : ''} type="button" onClick={() => setDisplayCurrency('JPY')}>日圓</button></div></div>
+                    </section>
+                </div>
+            </section>
+        </div>
+    );
+}
+
+export default function ExpensePage({ user, expenseStore, trips }) {
+    const [selectedTripId, setSelectedTripId] = useState(null);
+    const [tripExpenseData, setTripExpenseData] = useState({});
+    const [jpyToTwd, setJpyToTwd] = useState(null);
+    const [rateUpdatedAt, setRateUpdatedAt] = useState(null);
+    const [rateError, setRateError] = useState(false);
+    const tripIdsKey = trips.map(({ id }) => id).join('|');
+    const selectedTrip = trips.find(({ id }) => id === selectedTripId);
+
+    useEffect(() => {
+        const tripIds = tripIdsKey ? tripIdsKey.split('|') : [];
+        let active = true;
+        const unsubscribers = [];
+        setTripExpenseData(Object.fromEntries(tripIds.map((tripId) => [tripId, {
+            shared: [], personal: [], sharedReady: false, personalReady: false, sharedError: '', personalError: '',
+        }])));
+
+        function updateTripData(tripId, changes) {
+            if (!active) return;
+            setTripExpenseData((current) => ({
+                ...current,
+                [tripId]: { ...current[tripId], ...changes },
+            }));
+        }
+
+        tripIds.forEach((tripId) => {
+            try {
+                unsubscribers.push(expenseStore.subscribeShared(tripId, (shared) => updateTripData(tripId, { shared, sharedReady: true, sharedError: '' }), () => updateTripData(tripId, { sharedReady: true, sharedError: '無法讀取此旅行的公帳，請檢查 Firebase Realtime Database 設定。' })));
+            } catch {
+                updateTripData(tripId, { sharedReady: true, sharedError: '無法讀取此旅行的公帳，請檢查 Firebase Realtime Database 設定。' });
+            }
+            try {
+                unsubscribers.push(expenseStore.subscribePersonal(user.uid, tripId, (personal) => updateTripData(tripId, { personal, personalReady: true, personalError: '' }), () => updateTripData(tripId, { personalReady: true, personalError: '無法讀取此旅行的私人帳目，請檢查 Firebase Realtime Database 設定。' })));
+            } catch {
+                updateTripData(tripId, { personalReady: true, personalError: '無法讀取此旅行的私人帳目，請檢查 Firebase Realtime Database 設定。' });
+            }
+        });
+
+        return () => {
+            active = false;
+            unsubscribers.forEach((unsubscribe) => unsubscribe());
+        };
+    }, [expenseStore, user.uid, tripIdsKey]);
+
+    useEffect(() => {
+        let active = true;
+        async function loadRate() {
+            try {
+                const response = await fetch('https://open.er-api.com/v6/latest/JPY');
+                if (!response.ok) throw new Error('Exchange rate request failed');
+                const result = await response.json();
+                const rate = Number(result.rates?.TWD);
+                if (!active || !rate) throw new Error('Exchange rate unavailable');
+                setJpyToTwd(rate);
+                setRateUpdatedAt(new Date());
+                setRateError(false);
+            } catch {
+                if (active) setRateError(true);
+            }
+        }
+        loadRate();
+        const interval = window.setInterval(loadRate, 30 * 60 * 1000);
+        return () => {
+            active = false;
+            window.clearInterval(interval);
+        };
+    }, []);
+
+    return (
+        <>
+            <section className="detail-page expense-page expense-overview-page">
+                <div className="page-heading expense-page-heading"><div><p className="section-eyebrow">TRIP EXPENSES</p><h1>記帳幫手</h1><p>選擇旅程查看公帳與私人花費。</p></div><Receipt className="expense-heading-icon" size={38} /></div>
+                {trips.length ? <div className="expense-trip-list">{trips.map((trip) => <ExpenseTripSummary key={trip.id} trip={trip} data={tripExpenseData[trip.id]} jpyToTwd={jpyToTwd} onOpen={() => setSelectedTripId(trip.id)} />)}</div> : <div className="expense-empty"><Receipt size={26} /><strong>目前沒有可記帳的旅程</strong><span>建立或加入一趟旅行後，即可開始記錄支出。</span></div>}
+            </section>
+            {selectedTrip && <ExpenseTripDialog key={selectedTrip.id} user={user} expenseStore={expenseStore} trip={selectedTrip} expenseData={tripExpenseData[selectedTrip.id]} jpyToTwd={jpyToTwd} rateUpdatedAt={rateUpdatedAt} rateError={rateError} onClose={() => setSelectedTripId(null)} />}
+        </>
     );
 }

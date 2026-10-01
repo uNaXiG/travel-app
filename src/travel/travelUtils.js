@@ -98,6 +98,7 @@ export function buildTripDeletionUpdates(tripId, trip) {
   const updates = { [`trips/${tripId}`]: null };
   Object.keys(trip.participants || {}).forEach((uid) => {
     updates[`users/${uid}/trips/${tripId}`] = null;
+    updates[`users/${uid}/tripExpenses/${tripId}`] = null;
   });
   return updates;
 }
