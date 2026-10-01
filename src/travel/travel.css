@@ -6436,6 +6436,34 @@
   }
 }
 
+@media (max-width: 480px) {
+  .packing-summary-row {
+    grid-template-columns: 36px minmax(0, 1fr) 14px;
+    grid-template-rows: auto auto;
+  }
+
+  .packing-summary-row .trip-summary-icon {
+    grid-column: 1;
+    grid-row: 1 / 3;
+  }
+
+  .packing-summary-row .trip-summary-main {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .packing-summary-progress {
+    grid-column: 2;
+    grid-row: 2;
+    justify-content: flex-start;
+  }
+
+  .packing-summary-row .trip-summary-chevron {
+    grid-column: 3;
+    grid-row: 1 / 3;
+  }
+}
+
 @media (max-width: 900px) {
   .day-card-heading {
     grid-template-columns: 31px minmax(0, 1fr) 108px 18px;

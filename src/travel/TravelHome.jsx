@@ -853,7 +853,7 @@ function PackingListPage({ user, packingStore, trips }) {
                     <>
                       <strong className={`packing-summary-progress-value is-${tone}`}>{percentage}%</strong>
                       <span className="packing-summary-progress-track"><span className={`is-${tone}`} style={{ width: `${percentage}%` }} /></span>
-                      <small>完成進度</small>
+                      {/* <small>完成進度</small> */}
                     </>
                   )}
                 </span>
