@@ -478,6 +478,79 @@ button {
   font-size: 9px;
 }
 
+.privacy-shell {
+  padding: 36px 20px;
+}
+
+.privacy-panel {
+  width: min(100%, 700px);
+  padding: 28px clamp(24px, 6vw, 52px) 20px;
+  border: 1px solid rgba(255, 255, 255, .24);
+  border-radius: 18px;
+  background: rgba(8, 12, 10, .72);
+  box-shadow: 0 22px 70px rgba(0, 0, 0, .35), inset 0 1px rgba(255, 255, 255, .08);
+  color: #f3f5f0;
+  backdrop-filter: blur(18px) saturate(130%);
+}
+
+.privacy-content {
+  padding: 34px 0 30px;
+  animation: copy-arrive .35s ease both;
+}
+
+.privacy-content h1 {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 600;
+}
+
+.privacy-intro {
+  margin: 10px 0 28px;
+  color: #c2c9c1;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.privacy-section {
+  padding: 17px 0;
+  border-top: 1px solid rgba(255, 255, 255, .14);
+}
+
+.privacy-section h2 {
+  margin: 0 0 7px;
+  color: #d0e5c6;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.privacy-section p {
+  margin: 0;
+  color: #d0d5ce;
+  font-size: 12px;
+  line-height: 1.9;
+}
+
+.privacy-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 20px;
+  color: #d0e5c6;
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.privacy-back-link:hover {
+  color: #e1f1d3;
+}
+
+.privacy-footer {
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, .2);
+  color: #b7beb7;
+  font-size: 9px;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -510,6 +583,22 @@ button {
 
   .social-auth-panel {
     width: min(100%, 480px);
+  }
+
+  .privacy-shell {
+    padding: 18px 14px;
+  }
+
+  .privacy-panel {
+    padding: 24px clamp(20px, 6vw, 30px) 16px;
+  }
+
+  .privacy-content {
+    padding: 26px 0 22px;
+  }
+
+  .privacy-content h1 {
+    font-size: 27px;
   }
 
   .brand {
