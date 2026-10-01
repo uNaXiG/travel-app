@@ -22,7 +22,7 @@ import {
   Info,
   LoaderCircle,
   LogOut,
-  Map,
+  Map as MapIcon,
   MapPin,
   Pencil,
   Plane,
@@ -824,7 +824,7 @@ export default function TravelHome({ user, onSignOut, packingStore, expenseStore
   }
 
   const navItems = [
-    { id: 'itinerary', label: '旅程總覽', icon: Map },
+    { id: 'itinerary', label: '旅程總覽', icon: MapIcon },
     { id: 'transport', label: '交通資訊', icon: Plane },
     { id: 'lodging', label: '住宿資訊', icon: BedDouble },
     { id: 'expenses', label: '記帳幫手', icon: Receipt },

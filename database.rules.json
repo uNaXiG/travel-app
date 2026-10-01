@@ -109,8 +109,8 @@
         },
         "tripExpenses": {
           "$tripId": {
-            ".read": "auth != null && auth.uid === $uid && root.child('trips').child($tripId).child('participants').child($uid).exists()",
-            ".write": "auth != null && ((auth.uid === $uid && root.child('trips').child($tripId).child('participants').child($uid).exists()) || (!newData.exists() && root.child('trips').child($tripId).child('ownerId').val() === auth.uid))",
+            ".read": "auth != null && auth.uid === $uid",
+            ".write": "auth != null && (auth.uid === $uid || (!newData.exists() && root.child('trips').child($tripId).child('ownerId').val() === auth.uid))",
             "$expenseId": {
               ".validate": "newData.hasChildren(['title', 'description', 'amount', 'currency', 'category', 'paymentMethod', 'createdAt']) && newData.child('title').isString() && newData.child('title').val().length > 0 && newData.child('title').val().length <= 60 && newData.child('description').isString() && newData.child('amount').isNumber() && newData.child('amount').val() > 0 && (newData.child('currency').val() === 'JPY' || newData.child('currency').val() === 'TWD')"
             }

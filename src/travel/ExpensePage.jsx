@@ -465,9 +465,9 @@ export default function ExpensePage({ user, expenseStore, trips }) {
                 updateTripData(tripId, { sharedReady: true, sharedError: '無法讀取此旅行的公帳，請檢查 Firebase Realtime Database 設定。' });
             }
             try {
-                unsubscribers.push(expenseStore.subscribePersonal(user.uid, tripId, (personal) => updateTripData(tripId, { personal, personalReady: true, personalError: '' }), () => updateTripData(tripId, { personalReady: true, personalError: '無法讀取此旅行的私人帳目，請檢查 Firebase Realtime Database 設定。' })));
+                unsubscribers.push(expenseStore.subscribePersonal(user.uid, tripId, (personal) => updateTripData(tripId, { personal, personalReady: true, personalError: '' }), () => updateTripData(tripId, { personalReady: true, personalError: '無法讀取私人帳目，請確認已發布最新 database.rules.json。' })));
             } catch {
-                updateTripData(tripId, { personalReady: true, personalError: '無法讀取此旅行的私人帳目，請檢查 Firebase Realtime Database 設定。' });
+                updateTripData(tripId, { personalReady: true, personalError: '無法讀取私人帳目，請確認已發布最新 database.rules.json。' });
             }
         });
 
