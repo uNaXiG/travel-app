@@ -3,6 +3,7 @@ import {
   FacebookAuthProvider,
   GoogleAuthProvider,
   onAuthStateChanged,
+  signInWithRedirect,
   signInWithPopup,
   signOut,
 } from 'firebase/auth';
@@ -21,7 +22,18 @@ const firebaseErrors = {
   'auth/popup-blocked': '瀏覽器封鎖了登入視窗，請允許彈出式視窗後再試。',
   'auth/cancelled-popup-request': '登入程序已取消，請再試一次。',
   'auth/account-exists-with-different-credential': '這個電子郵件已使用其他方式註冊，請先使用原本的登入方式。',
+  'auth/unauthorized-domain': '目前網域尚未被 Firebase 授權，請將此網站加入 Firebase Authentication 的授權網域。',
+  'auth/operation-not-supported-in-this-environment': '目前瀏覽器環境不支援彈出式登入，請改用外部瀏覽器再試。',
+  'auth/app-not-authorized': '此 Facebook 應用程式尚未開放給目前帳號，請確認 Facebook App 已上線或已將此帳號加入測試角色。',
 };
+
+function shouldUseRedirectFlow() {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(ua);
+  const isInAppBrowser = /FBAN|FBAV|Instagram|Line|MicroMessenger/i.test(ua);
+  return isMobile || isInAppBrowser;
+}
 
 function App() {
   const [firebaseUser, setFirebaseUser] = useState(null);
@@ -53,6 +65,11 @@ function App() {
     setBusyProvider(providerType);
     try {
       const provider = providerType === 'facebook' ? new FacebookAuthProvider() : new GoogleAuthProvider();
+      if (shouldUseRedirectFlow()) {
+        await signInWithRedirect(auth, provider);
+        return;
+      }
+
       await signInWithPopup(auth, provider);
       setNotice({ type: 'success', text: '登入成功，準備出發。' });
     } catch (error) {

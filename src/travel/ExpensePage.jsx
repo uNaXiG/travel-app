@@ -150,7 +150,7 @@ function ExpenseSettleModal({ expense, participant, currentUserId, onClose, onCo
     const [imageFailed, setImageFailed] = useState(false);
     const isOwner = expense.creatorId === currentUserId;
     const isPayer = participant.uid === expense.creatorId;
-    const canToggleStatus = isOwner && (!isPayer || !participant.settled);
+    const canToggleStatus = isOwner && !expense.locked && (!isPayer || !participant.settled);
     const initial = (participant.name || '旅').slice(0, 1).toUpperCase();
 
     const shares = expenseSharesInMinorUnits(expense);
@@ -232,9 +232,11 @@ function ExpenseSettleModal({ expense, participant, currentUserId, onClose, onCo
                     </div>
                 ) : (
                     <div className="expense-settle-permission-hint">
-                        {!isOwner
-                            ? '只有公帳建立者可變更分帳成員的付款與結清狀態。'
-                            : '已先付款的公帳付款人不可更改狀態，以確保帳目正確。'}
+                        {expense.locked
+                            ? '此公帳已鎖定，無法再更改結清狀態。'
+                            : !isOwner
+                                ? '只有公帳建立者可變更分帳成員的付款與結清狀態。'
+                                : '已先付款的公帳付款人不可更改狀態，以確保帳目正確。'}
                     </div>
                 )}
             </div>
@@ -459,7 +461,7 @@ function SharedExpenseCard({ expense, user, onJoin, onLeave, onEdit, onRemove, o
         return isOwner && (participant.uid !== expense.creatorId || !participant.settled);
     }
 
-    const firstUnsettled = participants.find((p) => canToggleParticipant(p) && !p.settled) || participants[0];
+    const firstUnsettled = expense.locked ? null : (participants.find((p) => canToggleParticipant(p) && !p.settled) || participants[0]);
 
     return (
         <article className={`expense-card${expense.locked ? ' is-locked' : ''}`}>
@@ -474,8 +476,26 @@ function SharedExpenseCard({ expense, user, onJoin, onLeave, onEdit, onRemove, o
                 </div>
                 {isOwner && (
                     <div className="expense-card-owner-actions">
-                        <button className="expense-icon-action" type="button" aria-label="編輯公帳" title="編輯公帳" onClick={onEdit}><Pencil size={15} /></button>
-                        <button className="expense-icon-action expense-icon-action-danger" type="button" aria-label="刪除公帳" title="刪除公帳" onClick={onRemove} disabled={working}><Trash2 size={15} /></button>
+                        <button
+                            className="expense-icon-action"
+                            type="button"
+                            aria-label="編輯公帳"
+                            title={expense.locked ? '此公帳已鎖定，無法編輯' : '編輯公帳'}
+                            onClick={onEdit}
+                            disabled={working || expense.locked}
+                        >
+                            <Pencil size={15} />
+                        </button>
+                        <button
+                            className="expense-icon-action expense-icon-action-danger"
+                            type="button"
+                            aria-label="刪除公帳"
+                            title={expense.locked ? '此公帳已鎖定，無法刪除' : '刪除公帳'}
+                            onClick={onRemove}
+                            disabled={working || expense.locked}
+                        >
+                            <Trash2 size={15} />
+                        </button>
                     </div>
                 )}
             </div>
@@ -660,6 +680,11 @@ function ExpenseTripDialog({ user, expenseStore, trip, expenseData, jpyToTwd, ra
     }
 
     async function saveExpense(form) {
+        if (formKind === 'shared' && editingExpense?.locked) {
+            setError('此公帳分帳已鎖定，無法編輯內容。');
+            return;
+        }
+
         setWorking(true);
         setError('');
         try {
@@ -679,6 +704,10 @@ function ExpenseTripDialog({ user, expenseStore, trip, expenseData, jpyToTwd, ra
     }
 
     async function removeExpense(kind, expense) {
+        if (kind === 'shared' && expense.locked) {
+            setError('此公帳分帳已鎖定，無法刪除。');
+            return;
+        }
         if (!window.confirm(`確定要刪除「${expense.title}」嗎？`)) return;
         setWorking(true);
         try {
@@ -726,6 +755,10 @@ function ExpenseTripDialog({ user, expenseStore, trip, expenseData, jpyToTwd, ra
     }
 
     async function settleParticipant(expense, participantUid, settled) {
+        if (expense.locked) {
+            setError('此公帳分帳已鎖定，無法變更結清狀態。');
+            return;
+        }
         setWorking(true);
         try {
             await expenseStore.setParticipantSettled(trip.id, expense.id, participantUid, settled, expense.creatorId);
@@ -766,6 +799,11 @@ function ExpenseTripDialog({ user, expenseStore, trip, expenseData, jpyToTwd, ra
     }
 
     function openEdit(kind, expense) {
+        if (kind === 'shared' && expense.locked) {
+            setError('此公帳分帳已鎖定，無法編輯內容。');
+            return;
+        }
+
         setEditingExpense(expense);
         setFormKind(kind);
         setNotice('');
