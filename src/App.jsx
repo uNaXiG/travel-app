@@ -14,6 +14,7 @@ import { expenseStore } from './expenseStore.js';
 import { packingStore } from './packingStore.js';
 import TravelHome from './travel/TravelHome.jsx';
 import PrivacyPolicy from './PrivacyPolicy.jsx';
+import TermsOfService from './TermsOfService.jsx';
 
 const firebaseErrors = {
   'auth/too-many-requests': '嘗試次數過多，請稍後再試。',
@@ -42,7 +43,9 @@ function shouldUseRedirectFlow() {
 function App() {
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
   const privacyPath = `${basePath}/privacy-policy`;
+  const termsPath = `${basePath}/terms-of-service`;
   const isPrivacyPage = window.location.pathname.replace(/\/$/, '') === privacyPath;
+  const isTermsPage = window.location.pathname.replace(/\/$/, '') === termsPath;
   const [firebaseUser, setFirebaseUser] = useState(null);
   const [authReady, setAuthReady] = useState(!auth);
   const [busyProvider, setBusyProvider] = useState('');
@@ -61,7 +64,8 @@ function App() {
     return onAuthStateChanged(auth, (nextUser) => {
       setFirebaseUser(nextUser);
       setAuthReady(true);
-      if (window.location.pathname.replace(/\/$/, '') === privacyPath) return;
+      const currentPath = window.location.pathname.replace(/\/$/, '');
+      if (currentPath === privacyPath || currentPath === termsPath) return;
       const destination = nextUser ? `${basePath}/main` : `${basePath}/`;
       if (window.location.pathname !== destination) {
         window.history.replaceState(null, '', destination);
@@ -119,6 +123,10 @@ function App() {
     return <PrivacyPolicy />;
   }
 
+  if (isTermsPage) {
+    return <TermsOfService />;
+  }
+
   if (!authReady) {
     return <main className="auth-bootstrap">正在確認登入狀態…</main>;
   }
@@ -168,7 +176,7 @@ function App() {
           </div>
 
           <p className="terms">
-            繼續即表示你同意我們的 <a href="#terms">服務條款</a> 與 <a href={`${import.meta.env.BASE_URL}privacy-policy`}>隱私權政策</a>
+            繼續即表示你同意我們的 <a href={`${import.meta.env.BASE_URL}terms-of-service`}>服務條款</a> 與 <a href={`${import.meta.env.BASE_URL}privacy-policy`}>隱私權政策</a>
           </p>
         </div>
         <footer className="form-footer"><span>© 2026 jp-travel-app</span><span>每一段旅程，都從這裡開始。</span></footer>
