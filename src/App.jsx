@@ -33,7 +33,10 @@ function shouldUseRedirectFlow() {
   if (typeof navigator === 'undefined') return false;
   const ua = navigator.userAgent || '';
   const isInAppBrowser = /FBAN|FBAV|Instagram|Line|MicroMessenger/i.test(ua);
-  return isInAppBrowser;
+  const isStandalone = navigator.standalone === true || (
+    typeof window !== 'undefined' && window.matchMedia?.('(display-mode: standalone)').matches
+  );
+  return isInAppBrowser || isStandalone;
 }
 
 function App() {
@@ -77,11 +80,15 @@ function App() {
     setBusyProvider(providerType);
     try {
       const provider = providerType === 'facebook' ? new FacebookAuthProvider() : new GoogleAuthProvider();
+      if (shouldUseRedirectFlow()) {
+        await signInWithRedirect(auth, provider);
+        return;
+      }
       await signInWithPopup(auth, provider);
       setNotice({ type: 'success', text: '登入成功，準備出發。' });
     } catch (error) {
       const fallbackToRedirectCodes = ['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment'];
-      if (shouldUseRedirectFlow() || fallbackToRedirectCodes.includes(error.code)) {
+      if (fallbackToRedirectCodes.includes(error.code)) {
         try {
           const provider = providerType === 'facebook' ? new FacebookAuthProvider() : new GoogleAuthProvider();
           await signInWithRedirect(auth, provider);
