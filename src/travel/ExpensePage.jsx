@@ -149,6 +149,7 @@ function ParticipantAvatar({ participant, isPayer, onSelect }) {
 }
 
 function ExpenseSettleModal({ expense, participant, currentUserId, onClose, onConfirm, working }) {
+    const [modalOpen, setModalOpen] = useState(true);
     const [imageFailed, setImageFailed] = useState(false);
     const isOwner = expense.creatorId === currentUserId;
     const isPayer = participant.uid === expense.creatorId;
@@ -165,22 +166,34 @@ function ExpenseSettleModal({ expense, participant, currentUserId, onClose, onCo
         setImageFailed(false);
     }, [participant.photoURL]);
 
+    function closeFromFooter() {
+        setModalOpen(false);
+        window.setTimeout(onClose, 200);
+    }
+
+    async function confirmSettlement() {
+        const saved = await onConfirm(participant.uid, !participant.settled);
+        if (!saved) return;
+        setModalOpen(false);
+        window.setTimeout(onClose, 200);
+    }
+
     return (
         <Modal
-            isOpen={true}
+            isOpen={modalOpen}
             onClose={onClose}
             eyebrow="SETTLEMENT STATUS"
             title="標記結清"
             footer={
                 canToggleStatus ? (
                     <>
-                        <button className="secondary-button" type="button" onClick={onClose} disabled={working}>取消</button>
-                        <button className="primary-button" type="button" onClick={() => onConfirm(participant.uid, !participant.settled)} disabled={working}>
+                        <button className="secondary-button" type="button" onClick={closeFromFooter} disabled={working}>取消</button>
+                        <button className="primary-button" type="button" onClick={confirmSettlement} disabled={working}>
                             {working ? '處理中…' : participant.settled ? (isPayer ? '確認取消付款' : '確認取消結清') : (isPayer ? '確認標記已付款' : '確認標記結清')}
                         </button>
                     </>
                 ) : (
-                    <button className="primary-button" type="button" onClick={onClose}>關閉</button>
+                    <button className="primary-button" type="button" onClick={closeFromFooter}>關閉</button>
                 )
             }
         >
@@ -247,6 +260,7 @@ function ExpenseSettleModal({ expense, participant, currentUserId, onClose, onCo
 }
 
 function ExpenseLockModal({ expense, onClose, onConfirmLock, working }) {
+    const [modalOpen, setModalOpen] = useState(true);
     const participants = participantEntries(expense);
     const multiplier = expense.currency === 'JPY' ? 1 : 100;
     const shares = expenseSharesInMinorUnits(expense);
@@ -258,9 +272,16 @@ function ExpenseLockModal({ expense, onClose, onConfirmLock, working }) {
         return map;
     }, [participants]);
 
+    async function confirmLock() {
+        const saved = await onConfirmLock(expense.id);
+        if (!saved) return;
+        setModalOpen(false);
+        window.setTimeout(onClose, 200);
+    }
+
     return (
         <Modal
-            isOpen={true}
+            isOpen={modalOpen}
             onClose={onClose}
             eyebrow="LOCK EXPENSE"
             title="鎖定分帳"
@@ -268,7 +289,7 @@ function ExpenseLockModal({ expense, onClose, onConfirmLock, working }) {
                 <button
                     className="expense-lock-confirm-button"
                     type="button"
-                    onClick={() => onConfirmLock(expense.id)}
+                    onClick={confirmLock}
                     disabled={working}
                 >
                     <Lock size={15} />
@@ -351,18 +372,32 @@ function ExpenseLockModal({ expense, onClose, onConfirmLock, working }) {
 }
 
 function ExpenseParticipantsListModal({ expense, onClose, onSelectParticipant }) {
+    const [modalOpen, setModalOpen] = useState(true);
     const participants = participantEntries(expense);
     const multiplier = expense.currency === 'JPY' ? 1 : 100;
     const shares = expenseSharesInMinorUnits(expense);
 
+    function closeFromFooter() {
+        setModalOpen(false);
+        window.setTimeout(onClose, 200);
+    }
+
+    function selectParticipant(participant) {
+        setModalOpen(false);
+        window.setTimeout(() => {
+            onClose();
+            onSelectParticipant(expense, participant);
+        }, 200);
+    }
+
     return (
         <Modal
-            isOpen={true}
+            isOpen={modalOpen}
             onClose={onClose}
             eyebrow="PARTICIPANTS"
             title="分帳成員列表"
             footer={
-                <button className="primary-button" type="button" onClick={onClose}>關閉</button>
+                <button className="primary-button" type="button" onClick={closeFromFooter}>關閉</button>
             }
         >
             <div className="expense-lock-body">
@@ -383,10 +418,7 @@ function ExpenseParticipantsListModal({ expense, onClose, onSelectParticipant })
                                 type="button"
                                 className="expense-lock-participant-row"
                                 style={{ width: '100%', cursor: 'pointer', textAlign: 'left', font: 'inherit' }}
-                                onClick={() => {
-                                    onClose();
-                                    onSelectParticipant(expense, participant);
-                                }}
+                                onClick={() => selectParticipant(participant)}
                             >
                                 <div className="expense-lock-participant-main">
                                     <span className="expense-lock-participant-avatar">
@@ -630,6 +662,7 @@ function ExpenseTripSummary({ trip, data, jpyToTwd, onOpen }) {
 }
 
 function ExpenseTripDialog({ user, expenseStore, trip, expenseData, jpyToTwd, rateUpdatedAt, rateError, onClose }) {
+    const [isVisible, setIsVisible] = useState(false);
     const [view, setView] = useState('shared');
     const [transferModalOpen, setTransferModalOpen] = useState(false);
     const [error, setError] = useState('');
@@ -644,6 +677,11 @@ function ExpenseTripDialog({ user, expenseStore, trip, expenseData, jpyToTwd, ra
     const sharedExpenses = expenseData?.shared || [];
     const personalExpenses = expenseData?.personal || [];
     const loadState = expenseData?.sharedReady && expenseData?.personalReady ? 'ready' : 'loading';
+
+    useEffect(() => {
+        const frame = window.requestAnimationFrame(() => setIsVisible(true));
+        return () => window.cancelAnimationFrame(frame);
+    }, []);
 
     useEffect(() => {
         const previousOverflow = document.body.style.overflow;
@@ -751,15 +789,16 @@ function ExpenseTripDialog({ user, expenseStore, trip, expenseData, jpyToTwd, ra
     async function settleParticipant(expense, participantUid, settled) {
         if (expense.locked) {
             setError('此公帳分帳已鎖定，無法變更結清狀態。');
-            return;
+            return false;
         }
         setWorking(true);
         try {
             await expenseStore.setParticipantSettled(trip.id, expense.id, participantUid, settled, expense.creatorId);
             setNotice(settled ? '已標記為結清' : '已取消結清標記');
-            setSettlingTarget(null);
+            return true;
         } catch {
             setError('更新結清狀態失敗，請稍後再試。');
+            return false;
         } finally {
             setWorking(false);
         }
@@ -770,9 +809,10 @@ function ExpenseTripDialog({ user, expenseStore, trip, expenseData, jpyToTwd, ra
         try {
             await expenseStore.lockShared(trip.id, expenseId);
             setNotice('公帳分帳已鎖定');
-            setLockingExpense(null);
+            return true;
         } catch {
             setError('鎖定分帳失敗，請稍後再試。');
+            return false;
         } finally {
             setWorking(false);
         }
@@ -824,12 +864,17 @@ function ExpenseTripDialog({ user, expenseStore, trip, expenseData, jpyToTwd, ra
         ? (formKind === 'shared' ? '編輯公帳' : '編輯個人帳')
         : (formKind === 'shared' ? '新增公帳' : '新增個人帳');
 
+    function closeExpenseDialog() {
+        setIsVisible(false);
+        window.setTimeout(onClose, 200);
+    }
+
     return (
-        <div className="expense-modal-backdrop">
-            <section className="expense-modal" role="dialog" aria-modal="true" aria-labelledby="expense-modal-title">
+        <div className={`expense-modal-backdrop${isVisible ? ' is-visible' : ''}`}>
+            <section className={`expense-modal${isVisible ? ' is-visible' : ''}`} role="dialog" aria-modal="true" aria-labelledby="expense-modal-title">
                 <header className="expense-modal-header">
                     <div><p>{trip.country || 'TRIP EXPENSES'} · 記帳明細</p><h2 id="expense-modal-title">{trip.title}</h2></div>
-                    <button className="expense-modal-close" type="button" aria-label="關閉記帳明細" onClick={onClose}><X size={19} /></button>
+                    <button className="expense-modal-close" type="button" aria-label="關閉記帳明細" onClick={closeExpenseDialog}><X size={19} /></button>
                 </header>
                 <div className="expense-modal-content">
                     <section className="detail-page expense-page">
@@ -854,22 +899,19 @@ function ExpenseTripDialog({ user, expenseStore, trip, expenseData, jpyToTwd, ra
                 </div>
             </section>
 
-            {formKind && (
-                <Modal
-                    isOpen
+            <Modal
+                    isOpen={Boolean(formKind)}
                     onClose={resetForm}
                     eyebrow={`${trip.country || 'TRIP'} · ${formKind === 'shared' ? 'SHARED EXPENSE' : 'PERSONAL EXPENSE'}`}
                     title={expenseFormTitle}
                     maxWidth="720px"
                     className="expense-entry-form-modal"
                 >
-                    <ExpenseForm kind={formKind} initialValue={formInitialValue} isEditing={Boolean(editingExpense)} onSubmit={saveExpense} working={working} />
-                </Modal>
-            )}
+                    {formKind && <ExpenseForm kind={formKind} initialValue={formInitialValue} isEditing={Boolean(editingExpense)} onSubmit={saveExpense} working={working} />}
+            </Modal>
 
-            {transferModalOpen && view === 'shared' && (
-                <Modal
-                    isOpen
+            <Modal
+                    isOpen={transferModalOpen && view === 'shared'}
                     onClose={() => setTransferModalOpen(false)}
                     eyebrow={`${trip.country || 'TRIP'} · SETTLEMENT`}
                     title="轉帳建議"
@@ -891,8 +933,7 @@ function ExpenseTripDialog({ user, expenseStore, trip, expenseData, jpyToTwd, ra
                         </div>
                     ) : <p className="expense-settlement-empty">目前沒有待結清款項</p>}
                     <p className="expense-settlement-note">只計算此旅行公帳的未結清分攤；同一成員間的金額會先合併抵銷。</p>
-                </Modal>
-            )}
+            </Modal>
 
             {/* 置中的浮動視窗 (Modal) */}
             {activeSettlingExpense && activeSettlingParticipant && (

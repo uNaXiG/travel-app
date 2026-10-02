@@ -132,7 +132,7 @@ function App() {
         <div className="form-content">
           <p className="section-kicker">SOCIAL SIGN IN ONLY</p>
           <h2>登入開始旅行</h2>
-          <p className="form-intro">使用你熟悉的社群帳號快速登入，開始規劃下一趟旅程。</p>
+          <p className="form-intro">使用你熟悉的帳號快速登入，開始規劃旅程</p>
 
           {notice && <p className={`notice ${notice.type}`} role="status">{notice.text}</p>}
 

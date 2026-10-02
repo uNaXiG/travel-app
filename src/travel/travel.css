@@ -776,7 +776,7 @@
   position: relative;
   display: flex;
   justify-content: center;
-  padding-top: 25px;
+  padding-top: 17px;
 }
 
 .event-marker::after {
@@ -793,14 +793,11 @@
   display: none;
 }
 
-.event-marker span {
+.event-marker-icon {
   position: relative;
   z-index: 1;
-  width: 8px;
-  height: 8px;
-  border: 2px solid var(--event-color);
-  border-radius: 50%;
-  background: white;
+  flex: 0 0 auto;
+  color: var(--event-color);
 }
 
 .event-card-content {
@@ -810,6 +807,34 @@
   border-left: 3px solid var(--event-color);
   border-radius: 9px;
   background: #fff;
+}
+
+.event-card-content.is-editable {
+  cursor: pointer;
+}
+
+.event-card-content.is-editable:hover {
+  border-color: #c4cec2;
+}
+
+.event-card-content.is-editable:focus-visible {
+  outline: 2px solid #78927a;
+  outline-offset: 2px;
+}
+
+.event-edit-modal-actions {
+  display: grid;
+  width: 100%;
+  gap: 8px;
+}
+
+.event-edit-modal-actions button {
+  width: 100%;
+  justify-content: center;
+}
+
+.event-edit-modal-actions .event-delete-button {
+  color: #d58d80;
 }
 
 .event-transport {
@@ -1736,7 +1761,12 @@
   }
 
   .event-marker {
-    padding-top: 22px;
+    padding-top: 13px;
+  }
+
+  .event-marker-icon {
+    width: 14px;
+    height: 14px;
   }
 
   .event-marker::after {
@@ -2275,6 +2305,10 @@
   background: #171e24;
 }
 
+.event-card-content.is-editable:hover {
+  border-color: #638c81;
+}
+
 .event-card-heading {
   display: flex;
   align-items: flex-start;
@@ -2371,10 +2405,6 @@
 
 .event-stay {
   --event-color: #c2b5dc;
-}
-
-.event-marker span {
-  background: #11171d;
 }
 
 .event-marker::after {
@@ -2893,7 +2923,7 @@
 }
 
 .packing-page {
-  max-width: 850px;
+  max-width: none;
 }
 
 .packing-board {
@@ -5162,6 +5192,14 @@
   padding: 24px;
   background: rgba(4, 8, 10, .76);
   backdrop-filter: blur(4px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease;
+}
+
+.expense-modal-backdrop.is-visible {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .expense-modal {
@@ -5176,6 +5214,14 @@
   color: #edf0ef;
   background: #11181d;
   box-shadow: 0 24px 80px rgba(0, 0, 0, .5);
+  opacity: 0;
+  transform: scale(.98) translateY(6px);
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+
+.expense-modal.is-visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
 }
 
 .expense-modal-header {
@@ -5661,7 +5707,7 @@
 }
 
 /* --------------------------------------------------------------------------
-   共用 Modal 元件樣式 (符合手機適配、內滾動、禁止外部點擊關閉、防鍵盤遮擋)
+  共用 Modal 元件樣式 (手機適配、內滾動、遮罩點擊關閉)
    -------------------------------------------------------------------------- */
 .travel-modal-backdrop {
   position: fixed;
@@ -5676,6 +5722,14 @@
   backdrop-filter: blur(6px);
   overflow-y: auto;
   overscroll-behavior: contain;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease;
+}
+
+.travel-modal-backdrop.is-visible {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .travel-modal {
@@ -5691,18 +5745,22 @@
   color: #edf0ef;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.65);
   overflow: hidden;
-  animation: travel-modal-enter 180ms ease-out;
+  opacity: 0;
+  transform: scale(.96) translateY(8px);
+  transition: opacity 200ms ease, transform 200ms ease;
 }
 
-@keyframes travel-modal-enter {
-  from {
-    opacity: 0;
-    transform: scale(0.96) translateY(8px);
-  }
+.travel-modal.is-visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
 
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
+@media (prefers-reduced-motion: reduce) {
+  .travel-modal-backdrop,
+  .travel-modal,
+  .expense-modal-backdrop,
+  .expense-modal {
+    transition-duration: .01ms;
   }
 }
 
@@ -6455,7 +6513,9 @@
   .packing-summary-progress {
     grid-column: 2;
     grid-row: 2;
-    justify-content: flex-start;
+    width: 100%;
+    flex-direction: row;
+    justify-content: flex-end;
   }
 
   .packing-summary-row .trip-summary-chevron {

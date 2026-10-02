@@ -184,7 +184,9 @@ function EventCard({ event, onUpdate, onDelete }) {
     if (!window.confirm(`確定刪除「${event.title}」嗎？`)) return;
     setWorking(true);
     setError('');
+    setEditing(false);
     try {
+      await new Promise((resolve) => window.setTimeout(resolve, 200));
       await onDelete(event.id);
     } catch (deleteError) {
       setError(deleteError.message || '刪除行程失敗，請稍後再試。');
@@ -206,41 +208,79 @@ function EventCard({ event, onUpdate, onDelete }) {
     setEditing(false);
   }
 
+  function openEdit() {
+    if (!onUpdate || !onDelete || working) return;
+    setDraft({
+      title: event.title || '',
+      description: event.description || '',
+      startTime: event.startTime || '',
+      endTime: event.endTime || '',
+      address: event.location || '',
+      type: eventType,
+    });
+    setError('');
+    setEditing(true);
+  }
+
+  const canEdit = Boolean(onUpdate && onDelete);
+  const formId = `event-edit-form-${event.id}`;
+
   return (
-    <article className={`schedule-event event-${eventType}`}>
-      <div className="event-time">{event.time}</div>
-      <div className="event-marker"><span /></div>
-      <div className="event-card-content">
-        {editing ? (
-          <form className="event-edit-form" onSubmit={saveEvent}>
+    <>
+      <article className={`schedule-event event-${eventType}`}>
+        <div className="event-time">{event.time}</div>
+        <div className="event-marker"><EventIcon className="event-marker-icon" size={16} aria-hidden="true" /></div>
+        <div
+          className={`event-card-content${canEdit ? ' is-editable' : ''}`}
+          role={canEdit ? 'button' : undefined}
+          tabIndex={canEdit ? 0 : undefined}
+          aria-label={canEdit ? `編輯行程：${event.title}` : undefined}
+          onClick={(clickEvent) => {
+            if (!clickEvent.target.closest('a')) openEdit();
+          }}
+          onKeyDown={(keyEvent) => {
+            if (canEdit && keyEvent.target === keyEvent.currentTarget && ['Enter', ' '].includes(keyEvent.key)) {
+              keyEvent.preventDefault();
+              openEdit();
+            }
+          }}
+        >
+          <div className="event-card-heading">
+            <h3>{event.title}</h3>
+          </div>
+          <p>{event.description}</p>
+          {event.tip && <div className="guide-tip"><Sparkles size={14} /><span>{event.tip}</span></div>}
+          {event.location && <a className="map-link" href={mapsUrl(event.location)} target="_blank" rel="noreferrer" onClick={(clickEvent) => clickEvent.stopPropagation()}><MapPin size={14} />查看地圖 <ArrowRight size={14} /></a>}
+          {error && <p className="planner-error" role="alert">{error}</p>}
+        </div>
+      </article>
+      <Modal
+          isOpen={editing}
+          onClose={cancelEdit}
+          eyebrow="DAILY ITINERARY"
+          title="編輯行程"
+          maxWidth="560px"
+          className="event-edit-modal"
+          footer={(
+            <div className="event-edit-modal-actions">
+              <button className="planner-primary" type="submit" form={formId} disabled={working || !draft.title.trim()}>{working ? '儲存中…' : <><Check size={15} />儲存修改</>}</button>
+              <button className="planner-secondary event-delete-button" type="button" onClick={deleteEvent} disabled={working}><Trash2 size={15} />刪除行程</button>
+            </div>
+          )}
+        >
+          <form id={formId} className="event-edit-form" onSubmit={saveEvent}>
             <div className="planner-fields-grid">
               <label className="planner-field"><span>行程標題</span><input value={draft.title} onChange={(inputEvent) => setDraft((current) => ({ ...current, title: inputEvent.target.value }))} maxLength={100} required /></label>
               <label className="planner-field"><span>行程類型</span><select value={draft.type} onChange={(inputEvent) => setDraft((current) => ({ ...current, type: inputEvent.target.value }))}>{itineraryTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-              <label className="planner-field"><span>地址</span><input value={draft.address} onChange={(inputEvent) => setDraft((current) => ({ ...current, address: inputEvent.target.value }))} /></label>
+              <label className="planner-field planner-field-wide"><span>地址</span><input value={draft.address} onChange={(inputEvent) => setDraft((current) => ({ ...current, address: inputEvent.target.value }))} /></label>
               <label className="planner-field planner-field-wide"><span>行程描述</span><textarea rows={2} value={draft.description} onChange={(inputEvent) => setDraft((current) => ({ ...current, description: inputEvent.target.value }))} /></label>
               <label className="planner-field"><span>開始時間</span><input type="time" value={draft.startTime} onChange={(inputEvent) => setDraft((current) => ({ ...current, startTime: inputEvent.target.value }))} /></label>
               <label className="planner-field"><span>結束時間</span><input type="time" value={draft.endTime} onChange={(inputEvent) => setDraft((current) => ({ ...current, endTime: inputEvent.target.value }))} /></label>
             </div>
             {error && <p className="planner-error" role="alert">{error}</p>}
-            <div className="planner-inline-actions"><button className="planner-primary" type="submit" disabled={working || !draft.title.trim()}><Check size={15} />儲存</button><button className="planner-secondary" type="button" onClick={cancelEdit} disabled={working}><X size={15} />取消</button></div>
           </form>
-        ) : (
-          <>
-            <div className="event-card-heading">
-              <h3>{event.title}</h3>
-              <div className="event-card-tools">
-                <div className="event-type"><EventIcon size={15} />{event.category || '景點'}</div>
-                {onUpdate && onDelete && <div className="event-card-actions"><button className="event-action-button" type="button" aria-label={`編輯${event.title}`} title="編輯行程" onClick={() => { setError(''); setEditing(true); }} disabled={working}><Pencil size={15} /></button><button className="event-action-button delete" type="button" aria-label={`刪除${event.title}`} title="刪除行程" onClick={deleteEvent} disabled={working}><Trash2 size={15} /></button></div>}
-              </div>
-            </div>
-            <p>{event.description}</p>
-            {event.tip && <div className="guide-tip"><Sparkles size={14} /><span>{event.tip}</span></div>}
-            {event.location && <a className="map-link" href={mapsUrl(event.location)} target="_blank" rel="noreferrer"><MapPin size={14} />查看地圖 <ArrowRight size={14} /></a>}
-            {error && <p className="planner-error" role="alert">{error}</p>}
-          </>
-        )}
-      </div>
-    </article>
+      </Modal>
+    </>
   );
 }
 
@@ -342,8 +382,7 @@ function DayCard({ day, weather, isOpen, onToggle, onAddEvent, onUpdateEvent, on
           </div>
         )}
       </article>
-      {addOpen && (
-        <Modal isOpen onClose={() => setAddOpen(false)} eyebrow={`DAY ${day.id} · ${day.date}`} title="加入行程" maxWidth="760px" className="overview-event-modal">
+      <Modal isOpen={addOpen} onClose={() => setAddOpen(false)} eyebrow={`DAY ${day.id} · ${day.date}`} title="加入行程" maxWidth="760px" className="overview-event-modal">
           <form className="overview-event-form overview-event-modal-form" onSubmit={submitEvent}>
             <div className="planner-fields-grid">
               <label className="planner-field"><span>行程標題</span><input value={eventDraft.title} onChange={(event) => setEventDraft((current) => ({ ...current, title: event.target.value }))} required maxLength={100} /></label>
@@ -356,18 +395,15 @@ function DayCard({ day, weather, isOpen, onToggle, onAddEvent, onUpdateEvent, on
             {eventError && <p className="planner-error" role="alert">{eventError}</p>}
             <div className="planner-inline-actions"><button className="planner-primary" type="submit" disabled={savingEvent || !eventDraft.title.trim()}>{savingEvent ? '儲存中…' : <><Plus size={15} />加入行程</>}</button></div>
           </form>
-        </Modal>
-      )}
-      {summaryEditing && (
-        <Modal isOpen onClose={cancelSummaryEdit} eyebrow={`DAILY ITINERARY · ${day.weekday} · ${day.date}`} title="編輯每日資訊" maxWidth="560px" className="day-summary-edit-modal">
+      </Modal>
+      <Modal isOpen={summaryEditing} onClose={cancelSummaryEdit} eyebrow={`DAILY ITINERARY · ${day.weekday} · ${day.date}`} title="編輯每日資訊" maxWidth="560px" className="day-summary-edit-modal">
           <form className="day-summary-edit-form" onSubmit={saveDayDetails}>
             <label className="planner-field"><span>第 {day.id} 天主要地點</span><select autoFocus value={locationKeyDraft} onChange={(event) => setLocationKeyDraft(event.target.value)}><option value="">請選擇主要地點</option>{dailyLocationOptions.map((location) => <option key={location.key} value={location.key}>{location.displayName}</option>)}</select></label>
             <label className="planner-field"><span>第 {day.id} 天摘要</span><textarea rows={3} maxLength={500} value={summaryDraft} onChange={(event) => setSummaryDraft(event.target.value)} placeholder="單獨記下這一天的重點或安排。" /></label>
             {summaryError && <p className="planner-error" role="alert">{summaryError}</p>}
             <div className="day-summary-actions"><button className="planner-primary" type="submit" disabled={summarySaving}>{summarySaving ? '儲存中…' : <><Check size={15} />儲存每日資訊</>}</button></div>
           </form>
-        </Modal>
-      )}
+      </Modal>
     </>
   );
 }
@@ -635,6 +671,7 @@ function packingProgressMessage(items, percentage) {
 
 function PackingTripModal({ trip, user, packingStore, data, onClose }) {
   const [addOpen, setAddOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(true);
   const [newItem, setNewItem] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editValue, setEditValue] = useState('');
@@ -645,6 +682,11 @@ function PackingTripModal({ trip, user, packingStore, data, onClose }) {
   const loadError = data?.error || '';
   const packingPercentage = packingProgress(items);
   const packingMessage = packingProgressMessage(items, packingPercentage);
+
+  function closeFromFooter() {
+    setModalOpen(false);
+    window.setTimeout(onClose, 200);
+  }
 
   async function runPackingAction(action) {
     setActionError('');
@@ -712,12 +754,12 @@ function PackingTripModal({ trip, user, packingStore, data, onClose }) {
 
   return (
     <Modal
-      isOpen
+      isOpen={modalOpen}
       onClose={onClose}
       title={trip.title}
       ariaLabelledBy="packing-modal-title"
       maxWidth="640px"
-      footer={<button className="primary-button" type="button" onClick={onClose}>完成</button>}
+      footer={<button className="primary-button" type="button" onClick={closeFromFooter}>完成</button>}
     >
       <div className="packing-board packing-board-modal" aria-label="個人攜帶清單">
         <header className="packing-board-header">
@@ -877,8 +919,14 @@ function PackingListPage({ user, packingStore, trips }) {
 
 function AddFlightModal({ trip, onClose, onSubmit }) {
   const [draft, setDraft] = useState(emptyFlight);
+  const [modalOpen, setModalOpen] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  function closeAfterTransition() {
+    setModalOpen(false);
+    window.setTimeout(onClose, 200);
+  }
 
   function updateField(field, value) {
     setDraft((current) => ({ ...current, [field]: value }));
@@ -899,7 +947,7 @@ function AddFlightModal({ trip, onClose, onSubmit }) {
     setSaving(true);
     try {
       await onSubmit(trip.id, draft);
-      onClose();
+      closeAfterTransition();
     } catch (saveError) {
       setError(saveError.message || '新增機票失敗，請稍後再試。');
     } finally {
@@ -908,7 +956,7 @@ function AddFlightModal({ trip, onClose, onSubmit }) {
   }
 
   return (
-    <Modal isOpen onClose={onClose} eyebrow={`${trip.country} · FLIGHT DETAILS`} title="新增機票" maxWidth="760px" className="trip-record-form-modal">
+    <Modal isOpen={modalOpen} onClose={onClose} eyebrow={`${trip.country} · FLIGHT DETAILS`} title="新增機票" maxWidth="760px" className="trip-record-form-modal">
       <form className="trip-record-form trip-record-form-flight" onSubmit={saveFlight}>
         <div className="planner-fields-grid flight-editor-grid">
           <Field label="航空公司" value={draft.airline} onChange={(event) => updateField('airline', event.target.value)} placeholder="航空公司" required />
@@ -930,9 +978,15 @@ function AddFlightModal({ trip, onClose, onSubmit }) {
 
 function AddLodgingModal({ trip, onClose, onSubmit }) {
   const [draft, setDraft] = useState(emptyLodging);
+  const [modalOpen, setModalOpen] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [imageError, setImageError] = useState('');
+
+  function closeAfterTransition() {
+    setModalOpen(false);
+    window.setTimeout(onClose, 200);
+  }
 
   function updateField(field, value) {
     setDraft((current) => ({ ...current, [field]: value }));
@@ -957,7 +1011,7 @@ function AddLodgingModal({ trip, onClose, onSubmit }) {
     setSaving(true);
     try {
       await onSubmit(trip.id, draft);
-      onClose();
+      closeAfterTransition();
     } catch (saveError) {
       setError(saveError.message || '新增住宿失敗，請稍後再試。');
     } finally {
@@ -966,7 +1020,7 @@ function AddLodgingModal({ trip, onClose, onSubmit }) {
   }
 
   return (
-    <Modal isOpen onClose={onClose} eyebrow={`${trip.country} · ACCOMMODATION`} title="新增住宿" maxWidth="760px" className="trip-record-form-modal">
+    <Modal isOpen={modalOpen} onClose={onClose} eyebrow={`${trip.country} · ACCOMMODATION`} title="新增住宿" maxWidth="760px" className="trip-record-form-modal">
       <form className="trip-record-form trip-record-form-lodging" onSubmit={saveLodging}>
         <div className="planner-fields-grid lodging-editor-grid">
           <Field className="lodging-half-field" label="住宿名稱" value={draft.name} onChange={(event) => updateField('name', event.target.value)} placeholder="飯店或住宿名稱" required />
