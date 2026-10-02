@@ -417,27 +417,12 @@ function buildCalendarCells(year, month) {
   return cells;
 }
 
-function TripStatusCard({ trip }) {
-  const [now, setNow] = useState(Date.now());
+function TripCalendar({ trip }) {
   const startDate = new Date(`${trip.startDate}T00:00:00`);
   const endDate = new Date(`${trip.endDate}T00:00:00`);
-  const tripStart = startDate.getTime();
-  const tripEnd = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 23, 59, 59).getTime();
   const [viewYear, setViewYear] = useState(startDate.getFullYear());
   const [viewMonth, setViewMonth] = useState(startDate.getMonth());
-  const countdown = Math.max(tripStart - now, 0);
-  const days = Math.floor(countdown / 86400000);
-  const hours = Math.floor((countdown % 86400000) / 3600000);
-  const minutes = Math.floor((countdown % 3600000) / 60000);
-  const seconds = Math.floor((countdown % 60000) / 1000);
-  const isOngoing = now >= tripStart && now <= tripEnd;
-  const isFinished = now > tripEnd;
   const calendarCells = buildCalendarCells(viewYear, viewMonth);
-
-  useEffect(() => {
-    const interval = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(interval);
-  }, []);
 
   useEffect(() => {
     setViewYear(startDate.getFullYear());
@@ -455,39 +440,63 @@ function TripStatusCard({ trip }) {
   }
 
   return (
+    <div className="trip-calendar">
+      <div className="trip-calendar-nav">
+        <button className="trip-calendar-nav-button" type="button" aria-label="上一個月" onClick={goPrevMonth}><ChevronLeft size={16} /></button>
+        <div className="trip-calendar-month">{viewYear} 年 {viewMonth + 1} 月</div>
+        <button className="trip-calendar-nav-button" type="button" aria-label="下一個月" onClick={goNextMonth}><ChevronRight size={16} /></button>
+      </div>
+      <div className="trip-calendar-weekdays">{['日', '一', '二', '三', '四', '五', '六'].map((weekday) => <span key={weekday}>{weekday}</span>)}</div>
+      <div className="trip-calendar-grid">
+        {calendarCells.map((cellDate, index) => {
+          if (!cellDate) return <span className="trip-calendar-empty" key={`empty-${index}`} />;
+          const dayTime = cellDate.getTime();
+          const tripStart = startDate.getTime();
+          const tripEnd = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 23, 59, 59).getTime();
+          const isTripDay = dayTime >= tripStart && dayTime <= tripEnd;
+          const weekdayIndex = index % 7;
+          const isTripStart = cellDate.getFullYear() === startDate.getFullYear() && cellDate.getMonth() === startDate.getMonth() && cellDate.getDate() === startDate.getDate();
+          const isTripEnd = cellDate.getFullYear() === endDate.getFullYear() && cellDate.getMonth() === endDate.getMonth() && cellDate.getDate() === endDate.getDate();
+          const isFirstDayOfMonth = cellDate.getDate() === 1;
+          const isLastDayOfMonth = cellDate.getDate() === new Date(cellDate.getFullYear(), cellDate.getMonth() + 1, 0).getDate();
+          const roundLeft = isTripDay && (weekdayIndex === 0 || isTripStart || isFirstDayOfMonth);
+          const roundRight = isTripDay && (weekdayIndex === 6 || isTripEnd || isLastDayOfMonth);
+          return (
+            <span
+              className={`trip-calendar-day${isTripDay ? ' is-trip-day' : ''}${roundLeft ? ' is-trip-start' : ''}${roundRight ? ' is-trip-end' : ''}`}
+              key={cellDate.toISOString()}
+            >
+              {cellDate.getDate()}
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function TripStatusCard({ trip, showCalendar = true }) {
+  const [now, setNow] = useState(Date.now());
+  const startDate = new Date(`${trip.startDate}T00:00:00`);
+  const endDate = new Date(`${trip.endDate}T00:00:00`);
+  const tripStart = startDate.getTime();
+  const tripEnd = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 23, 59, 59).getTime();
+  const countdown = Math.max(tripStart - now, 0);
+  const days = Math.floor(countdown / 86400000);
+  const hours = Math.floor((countdown % 86400000) / 3600000);
+  const minutes = Math.floor((countdown % 3600000) / 60000);
+  const seconds = Math.floor((countdown % 60000) / 1000);
+  const isOngoing = now >= tripStart && now <= tripEnd;
+  const isFinished = now > tripEnd;
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  return (
     <div className="trip-status-stack" aria-label="旅程日期與倒數">
-      <section className="trip-status-card trip-calendar-card">
-        <div className="trip-calendar">
-          <div className="trip-calendar-nav">
-            <button className="trip-calendar-nav-button" type="button" aria-label="上一個月" onClick={goPrevMonth}><ChevronLeft size={14} /></button>
-            <div className="trip-calendar-month">{viewYear} 年 {viewMonth + 1} 月</div>
-            <button className="trip-calendar-nav-button" type="button" aria-label="下一個月" onClick={goNextMonth}><ChevronRight size={14} /></button>
-          </div>
-          <div className="trip-calendar-weekdays">{['日', '一', '二', '三', '四', '五', '六'].map((weekday) => <span key={weekday}>{weekday}</span>)}</div>
-          <div className="trip-calendar-grid">
-            {calendarCells.map((cellDate, index) => {
-              if (!cellDate) return <span className="trip-calendar-empty" key={`empty-${index}`} />;
-              const dayTime = cellDate.getTime();
-              const isTripDay = dayTime >= tripStart && dayTime <= tripEnd;
-              const weekdayIndex = index % 7;
-              const isTripStart = cellDate.getFullYear() === startDate.getFullYear() && cellDate.getMonth() === startDate.getMonth() && cellDate.getDate() === startDate.getDate();
-              const isTripEnd = cellDate.getFullYear() === endDate.getFullYear() && cellDate.getMonth() === endDate.getMonth() && cellDate.getDate() === endDate.getDate();
-              const isFirstDayOfMonth = cellDate.getDate() === 1;
-              const isLastDayOfMonth = cellDate.getDate() === new Date(cellDate.getFullYear(), cellDate.getMonth() + 1, 0).getDate();
-              const roundLeft = isTripDay && (weekdayIndex === 0 || isTripStart || isFirstDayOfMonth);
-              const roundRight = isTripDay && (weekdayIndex === 6 || isTripEnd || isLastDayOfMonth);
-              return (
-                <span
-                  className={`trip-calendar-day${isTripDay ? ' is-trip-day' : ''}${roundLeft ? ' is-trip-start' : ''}${roundRight ? ' is-trip-end' : ''}`}
-                  key={cellDate.toISOString()}
-                >
-                  {cellDate.getDate()}
-                </span>
-              );
-            })}
-          </div>
-        </div>
-      </section>
+      {showCalendar && <section className="trip-status-card trip-calendar-card"><TripCalendar trip={trip} /></section>}
       <section className="trip-status-card trip-countdown-card">
         <div className="trip-countdown">{!isFinished && !isOngoing && <div className="trip-countdown-values"><strong>{String(days).padStart(2, '0')}<small>日</small></strong><i>:</i><strong>{String(hours).padStart(2, '0')}<small>時</small></strong><i>:</i><strong>{String(minutes).padStart(2, '0')}<small>分</small></strong><i>:</i><strong>{String(seconds).padStart(2, '0')}<small>秒</small></strong></div>}</div>
       </section>
@@ -499,6 +508,7 @@ function TripStatusCard({ trip }) {
 function TripOverview({ trip, onAddEvent, onUpdateEvent, onDeleteEvent, onUpdateDetails, onBack }) {
   const days = toOverviewDays(trip);
   const [openDay, setOpenDay] = useState(1);
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [pendingScrollDay, setPendingScrollDay] = useState(null);
   const [weatherByDate, setWeatherByDate] = useState({});
   const weatherLoadKey = days.map((day) => `${day.date}:${day.location?.key || ''}`).join('|');
@@ -553,7 +563,7 @@ function TripOverview({ trip, onAddEvent, onUpdateEvent, onDeleteEvent, onUpdate
   }
 
   return (
-    <>
+    <div className="trip-overview">
       <div className="overview-back-bar">
         <button className="overview-back-button" type="button" onClick={onBack}>
           <span className="overview-back-icon-box">
@@ -562,29 +572,28 @@ function TripOverview({ trip, onAddEvent, onUpdateEvent, onDeleteEvent, onUpdate
           <span className="overview-back-text">返回旅程總覽</span>
         </button>
       </div>
+      <div className="overview-countdown"><TripStatusCard trip={trip} showCalendar={false} /></div>
       <section className={`trip-hero${trip.coverImage ? ' has-cover' : ''}`}>
         {trip.coverImage && <img className="trip-hero-cover" src={trip.coverImage} alt="" />}
         <div className="trip-hero-copy">
-          <span className="trip-eyebrow"><span /> TRAVEL JOURNAL</span>
           <div className="trip-hero-heading">
             <h1>{trip.title}</h1>
-            <div className="trip-hero-id"><span>{trip.id}</span><TravelIdCopyButton id={trip.id} /></div>
           </div>
           <p>{trip.description}</p>
-          <div className="trip-meta"><span><CalendarDays size={15} />{formatTripDateRange(trip.startDate, trip.endDate)}</span><span><MapPin size={15} />{trip.country}</span></div>
         </div>
+        <div className="trip-meta"><button className="trip-date-trigger" type="button" aria-haspopup="dialog" onClick={() => setCalendarOpen(true)}><CalendarDays size={15} />{formatTripDateRange(trip.startDate, trip.endDate)}</button><span><MapPin size={15} />{trip.country}</span></div>
         <div className="trip-hero-participants"><ParticipantAvatarStack participants={Object.values(trip.participants || {})} limit={6} className="participant-stack--hero" /></div>
       </section>
 
-      <div className="trip-status-stack-mobile">
-        <TripStatusCard trip={trip} />
-      </div>
+      <Modal isOpen={calendarOpen} onClose={() => setCalendarOpen(false)} title="旅程日期" maxWidth="440px" className="trip-calendar-modal">
+        <TripCalendar trip={trip} />
+      </Modal>
 
       <section className="itinerary-section">
-        <div className="section-heading">
+        {/* <div className="section-heading">
           <div><p className="section-eyebrow">YOUR DAILY ROUTE</p><h2>每日行程</h2></div>
           <span className="section-count">{days.length} DAYS</span>
-        </div>
+        </div> */}
         <p className="weather-disclaimer"><Info size={14} />天氣依每日地點自動查詢，可能受資料來源與查詢時間影響。</p>
         <div className="day-list">
           {days.map((day) => (
@@ -592,7 +601,7 @@ function TripOverview({ trip, onAddEvent, onUpdateEvent, onDeleteEvent, onUpdate
           ))}
         </div>
       </section>
-    </>
+    </div>
   );
 }
 

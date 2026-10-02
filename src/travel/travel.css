@@ -390,8 +390,65 @@
   gap: 6px;
 }
 
+.trip-meta .trip-date-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.trip-meta .trip-date-trigger:hover {
+  color: #fff;
+}
+
+.trip-meta .trip-date-trigger:focus-visible {
+  outline: 2px solid #e4c894;
+  outline-offset: 4px;
+}
+
 .trip-meta svg {
   color: #e4c894;
+}
+
+@media (min-width: 761px) {
+  .trip-hero {
+    align-items: flex-start;
+  }
+
+  .trip-hero-copy {
+    width: 100%;
+    max-width: none;
+    padding-bottom: 52px;
+  }
+
+  .trip-hero .trip-hero-copy>p {
+    max-width: none;
+    font-size: 16px;
+  }
+
+  .trip-hero .trip-meta {
+    position: absolute;
+    z-index: 1;
+    right: 42px;
+    bottom: 30px;
+    left: 42px;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    gap: 14px;
+    margin-top: 0;
+  }
+
+  .trip-hero .trip-meta>span {
+    margin-left: auto;
+  }
 }
 
 .itinerary-section {
@@ -1582,14 +1639,15 @@
 
   .trip-hero {
     display: block;
-    min-height: 285px;
-    padding: 23px 20px 82px;
+    min-height: 290px;
+    padding: 23px 20px 20px;
     border-radius: 13px;
   }
 
   .trip-hero-copy {
     width: 100%;
     max-width: none;
+    padding-bottom: 38px;
   }
 
   .trip-hero-participants {
@@ -1620,10 +1678,29 @@
     font-size: 12px;
   }
 
-  .trip-meta {
+  .trip-hero .trip-meta {
+    position: absolute;
+    z-index: 1;
+    right: 20px;
+    bottom: 16px;
+    left: 20px;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: nowrap;
     gap: 10px;
-    margin-top: 13px;
-    font-size: 9px;
+    margin-top: 0;
+    font-size: 11px;
+  }
+
+  .trip-hero .trip-meta .trip-date-trigger {
+    min-width: 0;
+    min-height: 28px;
+    white-space: nowrap;
+  }
+
+  .trip-hero .trip-meta>span {
+    margin-left: auto;
+    white-space: nowrap;
   }
 
   .itinerary-section {
@@ -1949,7 +2026,7 @@
   }
 
   .trip-hero {
-    min-height: 210px;
+    min-height: 270px;
   }
 
   .day-card-heading {
@@ -4699,6 +4776,33 @@
   gap: 7px;
 }
 
+.trip-calendar-modal .travel-modal-content {
+  padding: 12px 16px 18px;
+}
+
+.trip-calendar-modal .trip-calendar {
+  gap: 12px;
+}
+
+.trip-calendar-modal .trip-calendar-nav-button {
+  width: 38px;
+  height: 38px;
+}
+
+.trip-calendar-modal .trip-calendar-month {
+  font-size: 18px;
+}
+
+.trip-calendar-modal .trip-calendar-weekdays {
+  font-size: 12px;
+}
+
+.trip-calendar-modal .trip-calendar-day,
+.trip-calendar-modal .trip-calendar-empty {
+  min-height: 42px;
+  font-size: 14px;
+}
+
 .trip-calendar-nav {
   display: flex;
   align-items: center;
@@ -4820,6 +4924,10 @@
 }
 
 @media (max-width: 760px) {
+  .trip-meta .trip-date-trigger {
+    min-height: 28px;
+  }
+
   .trip-status-stack-mobile {
     display: grid;
     margin-top: 18px;
@@ -6283,6 +6391,10 @@
 /* --------------------------------------------------------------------------
    旅程詳細頁－固定返回入口 (美觀 Sticky / Floating 玻璃擬態風格)
    -------------------------------------------------------------------------- */
+.trip-overview {
+  position: relative;
+}
+
 .overview-back-bar {
   position: sticky;
   top: 74px;
@@ -6293,6 +6405,10 @@
   margin-bottom: 16px;
   padding: 4px 0;
   pointer-events: none;
+}
+
+.overview-countdown {
+  display: none;
 }
 
 .overview-back-button {
@@ -6354,12 +6470,66 @@
 
 @media (max-width: 760px) {
   .overview-back-bar {
+    position: sticky;
     top: 62px;
+    z-index: 25;
     margin-top: -6px;
     margin-bottom: 12px;
   }
 
+  .overview-countdown {
+    position: absolute;
+    z-index: 9;
+    top: 4px;
+    right: 0;
+    display: block;
+    height: 36px;
+    pointer-events: none;
+  }
+
+  .overview-countdown .trip-status-stack {
+    width: auto;
+  }
+
+  .overview-countdown .trip-countdown-card {
+    display: flex;
+    width: auto;
+    height: 36px;
+    box-sizing: border-box;
+    align-items: center;
+    padding: 0;
+    overflow: visible;
+    border: 0;
+    background: transparent;
+  }
+
+  .overview-countdown .trip-countdown-values {
+    justify-content: flex-end;
+    gap: 3px;
+  }
+
+  .overview-countdown .trip-countdown-values strong {
+    flex: 0 0 auto;
+    gap: 1px;
+    color: #e4c894;
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  .overview-countdown .trip-countdown-values small {
+    color: #b7c0c1;
+    font-size: 14px;
+    line-height: 1;
+  }
+
+  .overview-countdown .trip-countdown-values i {
+    font-size: 16px;
+    line-height: 1;
+  }
+
   .overview-back-button {
+    height: 36px;
+    box-sizing: border-box;
     padding: 4px 11px 4px 5px;
     font-size: 12px;
     gap: 7px;
