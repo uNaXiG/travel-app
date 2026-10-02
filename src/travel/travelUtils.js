@@ -1,5 +1,15 @@
 const weekdayNames = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
 import { resolveStoredDayLocation } from './locationMapping.js';
+import { travelLimits } from '../config/travelLimits.js';
+
+export function assertTripCapacity(memberships, tripId, limit = travelLimits.maxTripsPerUser) {
+  if (tripId && Object.hasOwn(memberships || {}, tripId)) return;
+  if (Object.keys(memberships || {}).length >= limit) {
+    const error = new Error(`每位使用者最多可擁有 ${limit} 筆旅程（包含建立與加入的旅程）。請先刪除旅程，再建立或加入新的旅程。`);
+    error.code = 'trip-limit-reached';
+    throw error;
+  }
+}
 
 export const itineraryTypeOptions = [
   { value: 'transport', label: '交通' },

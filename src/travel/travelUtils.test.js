@@ -3,7 +3,29 @@ import assert from 'node:assert/strict';
 import { airports } from './airports.js';
 import { MAX_IMAGE_FILE_SIZE, validateImageFile } from './imageUtils.js';
 import { getDailyLocationByKey, toStoredDayLocation, toWeatherApiParams } from './locationMapping.js';
-import { buildTripDays, buildTripDeletionUpdates, formatTripDateRange, getTripsWithLodging, groupFlightsByTrip, isTripOwner, toOverviewDays } from './travelUtils.js';
+import { assertTripCapacity, buildTripDays, buildTripDeletionUpdates, formatTripDateRange, getTripsWithLodging, groupFlightsByTrip, isTripOwner, toOverviewDays } from './travelUtils.js';
+
+test('trip capacity allows empty and below-limit membership indexes', () => {
+  assert.doesNotThrow(() => assertTripCapacity(null));
+  assert.doesNotThrow(() => assertTripCapacity({ first: {}, second: {} }));
+  assert.doesNotThrow(() => assertTripCapacity({ first: {}, second: {} }, 'third'));
+});
+
+test('trip capacity rejects creating or joining a new trip at or above the limit', () => {
+  const memberships = { first: {}, second: {}, third: {} };
+  const isLimitError = (error) => error.code === 'trip-limit-reached' && /3 筆旅程/.test(error.message);
+  assert.throws(() => assertTripCapacity(memberships), isLimitError);
+  assert.throws(() => assertTripCapacity(memberships, 'fourth'), isLimitError);
+  assert.throws(() => assertTripCapacity({ ...memberships, fourth: {} }, 'fifth'), isLimitError);
+});
+
+test('trip capacity permits existing memberships and supports a different limit', () => {
+  const memberships = { first: {}, second: {}, third: {} };
+  assert.doesNotThrow(() => assertTripCapacity(memberships, 'first'));
+  assert.doesNotThrow(() => assertTripCapacity(memberships, 'fourth', 5));
+  assert.throws(() => assertTripCapacity({ first: {} }, 'second', 1), /1 筆旅程/);
+  assert.doesNotThrow(() => assertTripCapacity({ first: {}, second: {} }));
+});
 
 test('image uploads accept JPEG and PNG files up to 1 MiB', () => {
   assert.equal(validateImageFile({ type: 'image/jpeg', size: MAX_IMAGE_FILE_SIZE }), undefined);

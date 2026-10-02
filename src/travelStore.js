@@ -9,7 +9,29 @@ import {
 } from 'firebase/database';
 import { db } from './firebase.js';
 import { toStoredDayLocation } from './travel/locationMapping.js';
-import { buildTripDeletionUpdates, isTripOwner } from './travel/travelUtils.js';
+import { assertTripCapacity, buildTripDeletionUpdates, isTripOwner } from './travel/travelUtils.js';
+
+const pendingTripAdditions = new Map();
+
+async function checkTripCapacity(uid, tripId) {
+  const database = requireDatabase();
+  const snapshot = await get(ref(database, `users/${uid}/trips`));
+  assertTripCapacity(snapshot.val(), tripId);
+}
+
+async function withTripCapacity(uid, tripId, action) {
+  const previous = pendingTripAdditions.get(uid) || Promise.resolve();
+  const pending = previous.catch(() => {}).then(async () => {
+    await checkTripCapacity(uid, tripId);
+    return action();
+  });
+  pendingTripAdditions.set(uid, pending);
+  try {
+    return await pending;
+  } finally {
+    if (pendingTripAdditions.get(uid) === pending) pendingTripAdditions.delete(uid);
+  }
+}
 
 function requireDatabase() {
   if (!db) throw new Error('請在根目錄 .env 設定 Firebase Realtime Database。');
@@ -58,6 +80,8 @@ async function removeTripRecord(tripId, section, record, legacyFields, identityF
 }
 
 export const travelStore = {
+  checkTripCapacity,
+
   async getTripPreview(tripId) {
     const database = requireDatabase();
     const cleanedId = tripId.trim();
@@ -107,35 +131,37 @@ export const travelStore = {
   },
 
   async createTrip(uid, participant, input) {
-    const database = requireDatabase();
-    const tripRef = push(ref(database, 'trips'));
-    const tripId = tripRef.key;
-    const member = {
-      uid,
-      name: participant.name || '旅人',
-      photoURL: participant.photoURL || '',
-      joinedAt: serverTimestamp(),
-    };
-    const trip = {
-      ownerId: uid,
-      title: input.title.trim(),
-      description: input.description.trim(),
-      country: input.country.trim(),
-      startDate: input.startDate,
-      endDate: input.endDate,
-      coverImage: input.coverImage || '',
-      flights: input.flights,
-      lodging: input.lodging,
-      itinerary: input.itinerary || {},
-      participants: { [uid]: member },
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    };
-    await update(ref(database), {
-      [`trips/${tripId}`]: trip,
-      [`users/${uid}/trips/${tripId}`]: { joinedAt: serverTimestamp() },
+    return withTripCapacity(uid, null, async () => {
+      const database = requireDatabase();
+      const tripRef = push(ref(database, 'trips'));
+      const tripId = tripRef.key;
+      const member = {
+        uid,
+        name: participant.name || '旅人',
+        photoURL: participant.photoURL || '',
+        joinedAt: serverTimestamp(),
+      };
+      const trip = {
+        ownerId: uid,
+        title: input.title.trim(),
+        description: input.description.trim(),
+        country: input.country.trim(),
+        startDate: input.startDate,
+        endDate: input.endDate,
+        coverImage: input.coverImage || '',
+        flights: input.flights,
+        lodging: input.lodging,
+        itinerary: input.itinerary || {},
+        participants: { [uid]: member },
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+      await update(ref(database), {
+        [`trips/${tripId}`]: trip,
+        [`users/${uid}/trips/${tripId}`]: { joinedAt: serverTimestamp() },
+      });
+      return tripId;
     });
-    return tripId;
   },
 
   addFlight(tripId, flight) {
@@ -167,19 +193,21 @@ export const travelStore = {
     const database = requireDatabase();
     const cleanedId = tripId.trim();
     if (!cleanedId) throw new Error('請輸入旅行 ID。');
-    const tripSnapshot = await get(ref(database, `trips/${cleanedId}`));
-    if (!tripSnapshot.exists()) throw new Error('找不到這個旅行 ID，請確認後再試。');
-    const updates = { [`users/${uid}/trips/${cleanedId}`]: { joinedAt: serverTimestamp() } };
-    if (!tripSnapshot.val()?.participants?.[uid]) {
-      updates[`trips/${cleanedId}/participants/${uid}`] = {
-        uid,
-        name: participant.name || '旅人',
-        photoURL: participant.photoURL || '',
-        joinedAt: serverTimestamp(),
-      };
-    }
-    await update(ref(database), updates);
-    return cleanedId;
+    return withTripCapacity(uid, cleanedId, async () => {
+      const tripSnapshot = await get(ref(database, `trips/${cleanedId}`));
+      if (!tripSnapshot.exists()) throw new Error('找不到這個旅行 ID，請確認後再試。');
+      const updates = { [`users/${uid}/trips/${cleanedId}`]: { joinedAt: serverTimestamp() } };
+      if (!tripSnapshot.val()?.participants?.[uid]) {
+        updates[`trips/${cleanedId}/participants/${uid}`] = {
+          uid,
+          name: participant.name || '旅人',
+          photoURL: participant.photoURL || '',
+          joinedAt: serverTimestamp(),
+        };
+      }
+      await update(ref(database), updates);
+      return cleanedId;
+    });
   },
 
   addEvent(tripId, date, event, uid) {

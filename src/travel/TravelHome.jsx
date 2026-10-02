@@ -1247,6 +1247,7 @@ export default function TravelHome({ user, onSignOut, packingStore, expenseStore
     try {
       return await action();
     } catch (error) {
+      if (error.code === 'trip-limit-reached') window.alert(error.message);
       setTravelError(isRealtimeDatabasePermissionError(error)
         ? 'Realtime Database 規則尚未允許此帳號修改旅行，請發布 database.rules.json。'
         : error.message || '旅行資料儲存失敗，請檢查網路後再試。');
@@ -1261,6 +1262,10 @@ export default function TravelHome({ user, onSignOut, packingStore, expenseStore
       name: user.displayName || user.email?.split('@')[0] || '旅人',
       photoURL: user.photoURL || '',
     }, input));
+  }
+
+  function checkTripCapacity(tripId) {
+    return runTravelAction(() => travelStore.checkTripCapacity(user.uid, tripId));
   }
 
   function addTripFlight(tripId, flight) {
@@ -1291,7 +1296,10 @@ export default function TravelHome({ user, onSignOut, packingStore, expenseStore
   }
 
   function previewTrip(tripId) {
-    return travelStore.getTripPreview(tripId);
+    return runTravelAction(async () => {
+      await travelStore.checkTripCapacity(user.uid, tripId.trim());
+      return travelStore.getTripPreview(tripId);
+    });
   }
 
   function addTripEvent(tripId, date, event) {
@@ -1379,7 +1387,7 @@ export default function TravelHome({ user, onSignOut, packingStore, expenseStore
         </header>
 
         <main className="trip-content">
-          {section === 'itinerary' && !activeTravelId && <TravelPlanner key={section} uid={user.uid} trips={travelItems} loadState={travelLoadState} error={travelError} working={travelWorking} onCreate={createTrip} onJoin={joinTrip} onPreviewJoin={previewTrip} onDeleteTrip={deleteTrip} onOpenTrip={(tripId) => { setActiveTravelId(tripId); setSection('itinerary'); }} />}
+          {section === 'itinerary' && !activeTravelId && <TravelPlanner key={section} uid={user.uid} trips={travelItems} loadState={travelLoadState} error={travelError} working={travelWorking} onCheckCapacity={checkTripCapacity} onCreate={createTrip} onJoin={joinTrip} onPreviewJoin={previewTrip} onDeleteTrip={deleteTrip} onOpenTrip={(tripId) => { setActiveTravelId(tripId); setSection('itinerary'); }} />}
           {section === 'itinerary' && activeTravelId && !activeTrip && <div className="planner-empty-state">正在載入旅程…</div>}
           {section === 'itinerary' && activeTrip && <TripOverview key={activeTrip.id} trip={activeTrip} onAddEvent={(date, event) => addTripEvent(activeTrip.id, date, event)} onUpdateEvent={(date, eventId, event) => updateTripEvent(activeTrip.id, date, eventId, event)} onDeleteEvent={(date, eventId) => deleteTripEvent(activeTrip.id, date, eventId)} onUpdateDetails={(date, details) => updateTripDayDetails(activeTrip.id, date, details)} onBack={() => setActiveTravelId(null)} />}
           {section === 'transport' && <TransportationPage trips={travelItems} onAddFlight={addTripFlight} onDeleteFlight={deleteTripFlight} working={travelWorking} />}

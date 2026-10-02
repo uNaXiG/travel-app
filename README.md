@@ -27,6 +27,12 @@ iOS 使用者可透過 Safari 開啟網站，再加入主畫面，方便像 App 
 - **個人攜帶清單**：依旅程管理自己的物品，支援新增、修改、刪除、已打包勾選、拖曳排序與完成比例；不與同行者共用個人清單。
 - **跨裝置與使用規範**：提供桌面側邊導覽、手機底部導覽、獨立隱私權政策與服務條款頁；登入頁可開啟兩份文件，登入後可使用雲端同步資料。
 
+## 使用者旅程上限
+
+每位使用者預設最多擁有 4 筆旅程，包含自行建立與加入的共享旅程。建立入口、加入預覽及實際建立／加入前會讀取 `users/{uid}/trips` 索引計算數量；滿額以 alert 拒絕，重新加入索引中既有的旅程不占新名額。不新增 DB 計數欄位，也不自動刪除既有超額資料。
+
+同一頁面的新增請求會依使用者依序執行，但此限制屬於前端檢查，並非 DB 原子約束。跨分頁／跨裝置同時新增或直接呼叫 DB 仍可能突破上限；若需要強制保證，需另設可信任後端的原子檢查與寫入。目前沒有修改 Firebase 規則。
+
 ## 三大安全保障與適用範圍
 
 1. **Google 第三方嚴格驗證機制**：帳戶身分由 Google 登入及 Firebase Authentication 驗證，本服務不接收 Google 帳戶密碼。另支援以 reCAPTCHA Enterprise 為基礎的 Firebase App Check 驗證應用程式請求，與使用者登入驗證分工保護。
@@ -72,6 +78,7 @@ npm run dev
 | `VITE_FIREBASE_STORAGE_BUCKET` | Firebase Storage bucket 設定值 |
 | `VITE_FIREBASE_MESSAGING_SENDER_ID` | Firebase sender ID |
 | `VITE_FIREBASE_APP_ID` | Firebase Web App ID |
+| `VITE_MAX_TRIPS_PER_USER` | 可選；每位使用者的旅程上限，正整數，預設為 3；建置時套用 |
 | `VITE_FIREBASE_APP_CHECK_SITE_KEY` | 可選；reCAPTCHA Enterprise 網站金鑰。設定後，應用程式會初始化 App Check |
 | `VITE_FIREBASE_APPCHECK_DEBUG_TOKEN` | 可選；本機開發用的已註冊 App Check debug token，只放在未提交的本機環境檔 |
 

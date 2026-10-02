@@ -192,7 +192,7 @@ function TravelCard({ trip, onOpen, onDelete, canDelete }) {
   );
 }
 
-export default function TravelPlanner({ uid, trips, loadState, error, working, onCreate, onJoin, onPreviewJoin, onDeleteTrip, onOpenTrip }) {
+export default function TravelPlanner({ uid, trips, loadState, error, working, onCheckCapacity, onCreate, onJoin, onPreviewJoin, onDeleteTrip, onOpenTrip }) {
   const [mode, setMode] = useState('list');
   const [step, setStep] = useState(1);
   const [trip, setTrip] = useState(emptyTrip);
@@ -354,7 +354,14 @@ export default function TravelPlanner({ uid, trips, loadState, error, working, o
     setTrip((current) => ({ ...current, lodging: current.lodging.filter((lodging) => lodging.formId !== formId) }));
   }
 
-  function startCreate() {
+  async function startCreate() {
+    if (working) return;
+    try {
+      await onCheckCapacity();
+    } catch (capacityError) {
+      setFormError(capacityError.message || '無法確認旅程數量，請稍後再試。');
+      return;
+    }
     setTrip(emptyTrip());
     setCoverImageError('');
     setLodgingImageError('');
