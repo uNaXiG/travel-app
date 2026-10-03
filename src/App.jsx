@@ -10,6 +10,7 @@ import {
 } from 'firebase/auth';
 import { LoaderCircle, LockKeyhole } from 'lucide-react';
 import { auth, hasFirebaseConfig } from './firebase.js';
+import { isStandaloneBrowser, shouldUseRedirectFlow } from './authFlow.js';
 import { expenseStore } from './expenseStore.js';
 import { packingStore } from './packingStore.js';
 import TravelHome from './travel/TravelHome.jsx';
@@ -30,16 +31,6 @@ const firebaseErrors = {
   'auth/app-not-authorized': '此 Facebook 應用程式尚未開放給目前帳號，請確認 Facebook App 已上線或已將此帳號加入測試角色。',
 };
 
-function shouldUseRedirectFlow() {
-  if (typeof navigator === 'undefined') return false;
-  const ua = navigator.userAgent || '';
-  const isInAppBrowser = /FBAN|FBAV|Instagram|Line|MicroMessenger/i.test(ua);
-  const isStandalone = navigator.standalone === true || (
-    typeof window !== 'undefined' && window.matchMedia?.('(display-mode: standalone)').matches
-  );
-  return isInAppBrowser || isStandalone;
-}
-
 function App() {
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
   const privacyPath = `${basePath}/privacy-policy`;
@@ -54,59 +45,23 @@ function App() {
   useEffect(() => {
     if (!auth) return undefined;
 
-    let unsubscribe;
-
-    const initializeAuth = async () => {
-      try {
-        const redirectResult = await getRedirectResult(auth);
-
-        if (redirectResult?.user) {
-          console.log('Redirect login success:', redirectResult.user);
-        }
-      } catch (error) {
-        console.error('Redirect login failed:', error);
-
-        setNotice({
-          type: 'error',
-          text:
-            firebaseErrors[error.code] ||
-            '目前無法完成登入，請稍後再試。',
-        });
-      }
-
-      unsubscribe = onAuthStateChanged(auth, (nextUser) => {
-        console.log('Auth state changed:', nextUser);
-
-        setFirebaseUser(nextUser);
-        setAuthReady(true);
-
-        const currentPath =
-          window.location.pathname.replace(/\/+$/, '');
-
-        if (
-          currentPath === privacyPath ||
-          currentPath === termsPath
-        ) {
-          return;
-        }
-
-        const destination = nextUser
-          ? `${basePath}/main`
-          : `${basePath}/`;
-
-        if (window.location.pathname !== destination) {
-          window.history.replaceState(null, '', destination);
-        }
+    getRedirectResult(auth).catch((error) => {
+      setNotice({
+        type: 'error',
+        text: firebaseErrors[error.code] || '目前無法完成登入，請稍後再試。',
       });
-    };
+    });
 
-    initializeAuth();
-
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
+    return onAuthStateChanged(auth, (nextUser) => {
+      setFirebaseUser(nextUser);
+      setAuthReady(true);
+      const currentPath = window.location.pathname.replace(/\/$/, '');
+      if (currentPath === privacyPath || currentPath === termsPath) return;
+      const destination = nextUser ? `${basePath}/main` : `${basePath}/`;
+      if (window.location.pathname !== destination) {
+        window.history.replaceState(null, '', destination);
       }
-    };
+    });
   }, []);
 
   async function handleSocialSignIn(providerType) {
@@ -129,6 +84,13 @@ function App() {
     } catch (error) {
       const fallbackToRedirectCodes = ['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment'];
       if (fallbackToRedirectCodes.includes(error.code)) {
+        if (isStandaloneBrowser()) {
+          setNotice({
+            type: 'error',
+            text: '主畫面 App 無法開啟登入視窗。請允許彈出式視窗後，再回到此 App 重試登入；Safari 與主畫面 App 的登入狀態可能不共用。',
+          });
+          return;
+        }
         try {
           const provider = providerType === 'facebook' ? new FacebookAuthProvider() : new GoogleAuthProvider();
           await signInWithRedirect(auth, provider);
