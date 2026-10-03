@@ -828,7 +828,7 @@
   min-width: 11ch;
   padding-top: var(--event-marker-offset);
   color: #78847c;
-  font-size: 14px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
   line-height: var(--event-marker-size);
   text-align: right;

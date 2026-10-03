@@ -250,7 +250,7 @@ function EventCard({ event, onUpdate, onDelete }) {
           </div>
           <p>{event.description}</p>
           {event.tip && <div className="guide-tip"><Sparkles size={14} /><span>{event.tip}</span></div>}
-          {event.location && <a className="map-link" href={mapsUrl(event.location)} target="_blank" rel="noreferrer" onClick={(clickEvent) => clickEvent.stopPropagation()}><MapPin size={14} />查看地圖 <ArrowRight size={14} /></a>}
+          {event.location && <a className="map-link" href={mapsUrl(event.location)} target="_blank" rel="noreferrer" onClick={(clickEvent) => clickEvent.stopPropagation()}><MapPin size={14} />查看地圖<ArrowRight size={12} /></a>}
           {error && <p className="planner-error" role="alert">{error}</p>}
         </div>
       </article>
