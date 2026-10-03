@@ -399,7 +399,7 @@ function DayCard({ day, weather, isOpen, onToggle, onAddEvent, onUpdateEvent, on
       <Modal isOpen={summaryEditing} onClose={cancelSummaryEdit} eyebrow={`DAILY ITINERARY · ${day.weekday} · ${day.date}`} title="編輯每日資訊" maxWidth="560px" className="day-summary-edit-modal">
           <form className="day-summary-edit-form" onSubmit={saveDayDetails}>
             <label className="planner-field"><span>第 {day.id} 天主要地點</span><select autoFocus value={locationKeyDraft} onChange={(event) => setLocationKeyDraft(event.target.value)}><option value="">請選擇主要地點</option>{dailyLocationOptions.map((location) => <option key={location.key} value={location.key}>{location.displayName}</option>)}</select></label>
-            <label className="planner-field"><span>第 {day.id} 天摘要</span><textarea rows={3} maxLength={500} value={summaryDraft} onChange={(event) => setSummaryDraft(event.target.value)} placeholder="單獨記下這一天的重點或安排。" /></label>
+            <label className="planner-field"><span>第 {day.id} 天摘要</span><textarea rows={3} maxLength={50} value={summaryDraft} onChange={(event) => setSummaryDraft(event.target.value)} placeholder="單獨記下這一天的重點或安排。" /></label>
             {summaryError && <p className="planner-error" role="alert">{summaryError}</p>}
             <div className="day-summary-actions"><button className="planner-primary" type="submit" disabled={summarySaving}>{summarySaving ? '儲存中…' : <><Check size={15} />儲存每日資訊</>}</button></div>
           </form>

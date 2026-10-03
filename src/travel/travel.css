@@ -2330,6 +2330,8 @@
   min-width: 0;
   margin: 0;
   line-height: 1.7;
+  text-align: center;
+  font-size: 14px;
   white-space: pre-wrap;
 }
 
