@@ -84,6 +84,14 @@ npm run dev
 
 Firebase Authentication 需啟用 **Google** provider，並確認授權網域包含本機及正式環境的 `unaxig.github.io`。目前介面不使用電子郵件／密碼登入；Facebook provider 僅在日後重新開放該登入介面時才需要設定。
 
+### iOS 主畫面 App 登入
+
+主畫面 App 使用 popup 登入，讓 Firebase 在發起登入的 App 內取得結果；不強制使用 redirect，也不在 popup 被阻擋時自動退回 redirect。Safari 與主畫面 App 的儲存空間可能不共用，因此在 Safari 登入不代表主畫面 App 也已登入。
+
+目前正式站使用 GitHub Pages。跨網域 Firebase redirect 登入可能受到 Safari 儲存限制影響，出現 Google 授權後仍回到登入頁的情況。若日後需要 redirect，必須依 Firebase 的 redirect 最佳實務提供同網域的 `/__/auth/` handler（例如 Firebase Hosting 或反向代理）；僅將 `VITE_FIREBASE_AUTH_DOMAIN` 改成 `unaxig.github.io` 並不能解決。
+
+部署更新後，請在實體 iPhone 關閉並重新開啟主畫面 App，直接在 App 點選 Google 登入，確認進入旅程主畫面，並在關閉、重開 App 後仍保持登入。若 popup 被阻擋，請檢查 Safari 的「阻擋彈出式視窗」設定後回到 App 重試。自動測試涵蓋登入策略，不涵蓋 iOS 系統視窗或真實 Google 授權。
+
 ## Firebase 資料庫設定
 
 本專案使用根目錄的 `database.rules.json`。登入 Firebase CLI 後，從專案根目錄發布規則：
