@@ -261,6 +261,7 @@ function EventCard({ event, onUpdate, onDelete }) {
           title="編輯行程"
           maxWidth="560px"
           className="event-edit-modal"
+          closeOnBackdrop={false}
           footer={(
             <div className="event-edit-modal-actions">
               <button className="planner-primary" type="submit" form={formId} disabled={working || !draft.title.trim()}>{working ? '儲存中…' : <><Check size={15} />儲存修改</>}</button>
@@ -382,12 +383,12 @@ function DayCard({ day, weather, isOpen, onToggle, onAddEvent, onUpdateEvent, on
           </div>
         )}
       </article>
-      <Modal isOpen={addOpen} onClose={() => setAddOpen(false)} eyebrow={`DAY ${day.id} · ${day.date}`} title="加入行程" maxWidth="760px" className="overview-event-modal">
+      <Modal isOpen={addOpen} onClose={() => setAddOpen(false)} eyebrow={`DAY ${day.id} · ${day.date}`} title="加入行程" maxWidth="760px" className="overview-event-modal" closeOnBackdrop={false}>
           <form className="overview-event-form overview-event-modal-form" onSubmit={submitEvent}>
             <div className="planner-fields-grid">
               <label className="planner-field"><span>行程標題</span><input value={eventDraft.title} onChange={(event) => setEventDraft((current) => ({ ...current, title: event.target.value }))} required maxLength={100} /></label>
               <label className="planner-field"><span>行程類型</span><select value={eventDraft.type} onChange={(event) => setEventDraft((current) => ({ ...current, type: event.target.value }))}>{itineraryTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-              <label className="planner-field"><span>地址</span><input value={eventDraft.address} onChange={(event) => setEventDraft((current) => ({ ...current, address: event.target.value }))} /></label>
+              <label className="planner-field planner-field-wide"><span>地址</span><input value={eventDraft.address} onChange={(event) => setEventDraft((current) => ({ ...current, address: event.target.value }))} /></label>
               <label className="planner-field planner-field-wide"><span>行程描述</span><textarea rows={2} value={eventDraft.description} onChange={(event) => setEventDraft((current) => ({ ...current, description: event.target.value }))} /></label>
               <label className="planner-field"><span>開始時間</span><input type="time" value={eventDraft.startTime} onChange={(event) => setEventDraft((current) => ({ ...current, startTime: event.target.value }))} /></label>
               <label className="planner-field"><span>結束時間</span><input type="time" value={eventDraft.endTime} onChange={(event) => setEventDraft((current) => ({ ...current, endTime: event.target.value }))} /></label>

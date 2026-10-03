@@ -14,6 +14,7 @@ export default function Modal({
     maxWidth = '500px',
     ariaLabelledBy = 'travel-modal-title',
     className = '',
+    closeOnBackdrop = true,
 }) {
     const [isPresent, setIsPresent] = useState(isOpen);
     const [isVisible, setIsVisible] = useState(false);
@@ -79,7 +80,7 @@ export default function Modal({
             role="presentation"
             aria-hidden={!isVisible}
             onClick={(event) => {
-                if (event.target === event.currentTarget) requestClose();
+                if (closeOnBackdrop && event.target === event.currentTarget) requestClose();
             }}
         >
             <section
