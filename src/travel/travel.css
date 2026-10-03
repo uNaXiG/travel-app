@@ -2314,7 +2314,8 @@
 }
 
 .day-summary {
-  color: #c2cbcd;
+  color: #e4c894;
+  font-weight: 700;
   font-size: 13px;
 }
 
@@ -2327,11 +2328,12 @@
 
 .day-summary-row .day-summary {
   flex: 1 1 auto;
+  padding: 12px;
   min-width: 0;
   margin: 0;
   line-height: 1.7;
   text-align: center;
-  font-size: 14px;
+  font-size: 15px;
   white-space: pre-wrap;
 }
 
