@@ -816,24 +816,30 @@
 }
 
 .schedule-event {
+  --event-marker-size: 16px;
+  --event-marker-offset: 17px;
   display: grid;
-  grid-template-columns: 76px 20px minmax(0, 1fr);
+  grid-template-columns: max-content 20px minmax(0, 1fr);
   gap: 11px;
 }
 
 .event-time {
-  padding-top: 21px;
+  align-self: start;
+  min-width: 11ch;
+  padding-top: var(--event-marker-offset);
   color: #78847c;
-  font-size: 10px;
+  font-size: 14px;
   font-variant-numeric: tabular-nums;
+  line-height: var(--event-marker-size);
   text-align: right;
+  white-space: nowrap;
 }
 
 .event-marker {
   position: relative;
   display: flex;
   justify-content: center;
-  padding-top: 17px;
+  padding-top: var(--event-marker-offset);
 }
 
 .event-marker::after {
@@ -1828,17 +1834,10 @@
   }
 
   .schedule-event {
-    grid-template-columns: 54px 13px minmax(0, 1fr);
+    --event-marker-size: 14px;
+    --event-marker-offset: 13px;
+    grid-template-columns: max-content 14px minmax(0, 1fr);
     gap: 6px;
-  }
-
-  .event-time {
-    padding-top: 18px;
-    font-size: 8px;
-  }
-
-  .event-marker {
-    padding-top: 13px;
   }
 
   .event-marker-icon {
@@ -2037,7 +2036,7 @@
   }
 
   .schedule-event {
-    grid-template-columns: 45px 11px minmax(0, 1fr);
+    grid-template-columns: max-content 14px minmax(0, 1fr);
     gap: 5px;
   }
 
@@ -2374,7 +2373,6 @@
 
 .event-time {
   color: #b9c4c7;
-  font-size: 11px;
 }
 
 .event-card-content {
@@ -2791,7 +2789,6 @@
 
   .event-time {
     color: #c0c9cb;
-    font-size: 9px;
   }
 
   .event-card-content {
