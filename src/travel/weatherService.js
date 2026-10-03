@@ -111,7 +111,7 @@ async function fetchCurrentWeather({ latitude, longitude }, signal) {
     const temp = Number(data?.current?.temperature_2m);
     return {
         weatherCode,
-        condition: `${weatherLabel(weatherCode)} · 即時`,
+        condition: `${weatherLabel(weatherCode)}`,
         temperatureText: Number.isFinite(temp) ? `${Math.round(temp)}°` : '--',
     };
 }

@@ -54,23 +54,59 @@ function App() {
   useEffect(() => {
     if (!auth) return undefined;
 
-    getRedirectResult(auth).catch((error) => {
-      setNotice({
-        type: 'error',
-        text: firebaseErrors[error.code] || '目前無法完成登入，請稍後再試。',
-      });
-    });
+    let unsubscribe;
 
-    return onAuthStateChanged(auth, (nextUser) => {
-      setFirebaseUser(nextUser);
-      setAuthReady(true);
-      const currentPath = window.location.pathname.replace(/\/$/, '');
-      if (currentPath === privacyPath || currentPath === termsPath) return;
-      const destination = nextUser ? `${basePath}/main` : `${basePath}/`;
-      if (window.location.pathname !== destination) {
-        window.history.replaceState(null, '', destination);
+    const initializeAuth = async () => {
+      try {
+        const redirectResult = await getRedirectResult(auth);
+
+        if (redirectResult?.user) {
+          console.log('Redirect login success:', redirectResult.user);
+        }
+      } catch (error) {
+        console.error('Redirect login failed:', error);
+
+        setNotice({
+          type: 'error',
+          text:
+            firebaseErrors[error.code] ||
+            '目前無法完成登入，請稍後再試。',
+        });
       }
-    });
+
+      unsubscribe = onAuthStateChanged(auth, (nextUser) => {
+        console.log('Auth state changed:', nextUser);
+
+        setFirebaseUser(nextUser);
+        setAuthReady(true);
+
+        const currentPath =
+          window.location.pathname.replace(/\/+$/, '');
+
+        if (
+          currentPath === privacyPath ||
+          currentPath === termsPath
+        ) {
+          return;
+        }
+
+        const destination = nextUser
+          ? `${basePath}/main`
+          : `${basePath}/`;
+
+        if (window.location.pathname !== destination) {
+          window.history.replaceState(null, '', destination);
+        }
+      });
+    };
+
+    initializeAuth();
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, []);
 
   async function handleSocialSignIn(providerType) {
